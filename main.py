@@ -1,3 +1,11 @@
+import sys
+import os
+
+# Add the 'src' directory to the Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_path = os.path.join(current_dir, 'src')
+if src_path not in sys.path:
+    sys.path.append(src_path)
 from flask import Flask, request, jsonify
 from mcp_agent.core.fastagent import FastAgent
 import os
