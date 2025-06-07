@@ -57,3 +57,7 @@ class Tool:
 @dataclass
 class ListToolsResult:
     tools: List[Tool]
+
+
+class SamplingMessage:
+    pass
