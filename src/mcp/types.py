@@ -68,3 +68,6 @@ class Tool:
     name: str
     description: str
     parameters: Dict[str, Any]
+    @dataclass
+class ListToolsResult:
+    tools: List['Tool']
