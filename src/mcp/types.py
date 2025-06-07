@@ -61,3 +61,6 @@ class ListToolsResult:
 
 class SamplingMessage:
     pass
+
+class CreateMessageRequestParams:
+    pass
