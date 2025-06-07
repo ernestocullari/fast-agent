@@ -1,57 +1,65 @@
-from typing import Any, AsyncIterator, Protocol
-
-from pydantic import BaseModel
-
-HUMAN_INPUT_SIGNAL_NAME = "__human_input__"
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Union
 
 
-class HumanInputRequest(BaseModel):
-    """Represents a request for human input."""
-
-    prompt: str
-    """The prompt to show to the user"""
-
-    description: str | None = None
-    """Optional description of what the input is for"""
-
-    request_id: str | None = None
-    """Unique identifier for this request"""
-
-    workflow_id: str | None = None
-    """Optional workflow ID if using workflow engine"""
-
-    timeout_seconds: int | None = None
-    """Optional timeout in seconds"""
-
-    metadata: dict | None = None
-    """Additional request payload"""
+@dataclass
+class TextContent:
+    text: str
+    type: str = "text"
 
 
-class HumanInputResponse(BaseModel):
-    """Represents a response to a human input request"""
-
-    request_id: str
-    """ID of the original request"""
-
-    response: str
-    """The input provided by the human"""
-
-    metadata: dict[str, Any] | None = None
-    """Additional response payload"""
+@dataclass
+class ImageContent:
+    image_url: str
+    type: str = "image_url"
 
 
-class HumanInputCallback(Protocol):
-    """Protocol for callbacks that handle human input requests."""
+@dataclass
+class EmbeddedResource:
+    type: str
+    path: str
+    resource: Any
 
-    async def __call__(self, request: HumanInputRequest) -> AsyncIterator[HumanInputResponse]:
-        """
-        Handle a human input request.
 
-        Args:
-            request: The input request to handle
+Content = Union[TextContent, ImageContent, EmbeddedResource]
 
-        Returns:
-            AsyncIterator yielding responses as they come in
-            TODO: saqadri - Keep it simple and just return HumanInputResponse?
-        """
-        ...
+
+@dataclass
+class CallToolResult:
+    name: str
+    success: bool
+    content: List[Content]
+    error: Optional[str] = None
+    raw_output: Optional[Union[str, Dict[str, Any]]] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class PromptMessage:
+    role: str
+    content: List[Content]
+
+
+@dataclass
+class Prompt:
+    messages: List[PromptMessage]
+    system_prompt: Optional[str] = None
+    user_prompt: Optional[str] = None
+
+
+@dataclass
+class GetPromptResult:
+    prompt: Prompt
+    prompt_id: str
+    model_name: Optional[str] = None
+
+
+@dataclass
+class ReadResourceResult:
+    path: str
+    resource: Any
+
+
+@dataclass
+class Role:
+    name: str
