@@ -1,31 +1,51 @@
-from pydantic import BaseModel, Field
-from typing import Any, Dict, List, Optional
+from pydantic import BaseModel
+from typing import Any, Dict, List, Optional, Union
 
 
-class SamplingMessage(BaseModel):
-    role: str
+class CallToolResult(BaseModel):
+    tool_name: str
+    output: Any
+
+
+class EmbeddedResource(BaseModel):
+    url: str
+    content_type: Optional[str] = None
+
+
+class GetPromptResult(BaseModel):
+    prompt_id: str
     content: str
 
 
-class CreateMessageRequestParams(BaseModel):
-    message: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
-    additional_inputs: Optional[Dict[str, Any]] = None
+class ImageContent(BaseModel):
+    url: str
+    alt_text: Optional[str] = None
 
 
-class RequestParams(CreateMessageRequestParams):
-    """
-    Parameters to configure the AugmentedLLM 'generate' requests.
-    """
+class Prompt(BaseModel):
+    id: str
+    content: str
 
-    messages: List[SamplingMessage] = Field(exclude=True, default=[])
-    maxTokens: int = 2048
-    model: str | None = None
-    use_history: bool = True
-    max_iterations: int = 20
-    parallel_tool_calls: bool = True
-    response_format: Any | None = None
-    template_vars: Dict[str, Any] = Field(default_factory=dict)
 
-    # This line must be at the same indentation as the other class variables
-    model_config = {"arbitrary_types_allowed": True}
+class PromptMessage(BaseModel):
+    role: str
+    content: Union[str, Dict[str, Any]]
+
+
+class ReadResourceResult(BaseModel):
+    resource_id: str
+    data: Dict[str, Any]
+
+
+class Role(BaseModel):
+    name: str
+    permissions: List[str]
+
+
+class TextContent(BaseModel):
+    text: str
+
+
+class Tool(BaseModel):
+    name: str
+    description: Optional[str] = None
