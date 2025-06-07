@@ -2,6 +2,11 @@ from pydantic import BaseModel
 from typing import Any, Dict, List, Optional, Union
 
 
+class SamplingMessage(BaseModel):
+    role: str
+    content: str
+
+
 class CallToolResult(BaseModel):
     tool_name: str
     output: Any
