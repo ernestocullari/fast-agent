@@ -63,3 +63,8 @@ class ReadResourceResult:
 @dataclass
 class Role:
     name: str
+@dataclass
+class Tool:
+    name: str
+    description: str
+    parameters: Dict[str, Any]
