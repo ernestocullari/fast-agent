@@ -40,7 +40,6 @@ distlib==0.3.9
 distro==1.9.0
 dulwich==0.22.8
 executing==2.2.0
--e git+https://github.com/ernestocullari/fast-agent@4f22f3967f84daeff103b429b360cc6b4ffe2021#egg=fast_agent_mcp
 fastapi==0.115.12
 fastjsonschema==2.21.1
 filelock==3.13.1
@@ -96,7 +95,6 @@ markdown-it-py==3.0.0
 MarkupSafe==3.0.2
 matplotlib==3.10.1
 matplotlib-inline==0.1.7
-mcp==1.9.1
 -e git+https://github.com/ernestocullari/fast-agent@4f22f3967f84daeff103b429b360cc6b4ffe2021#egg=mcp_agent&subdirectory=src
 mdurl==0.1.2
 mistune==3.1.2
