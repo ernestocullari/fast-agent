@@ -49,3 +49,7 @@ class TextContent(BaseModel):
 class Tool(BaseModel):
     name: str
     description: Optional[str] = None
+
+
+class ListToolsResult(BaseModel):
+    tools: List[Tool]
