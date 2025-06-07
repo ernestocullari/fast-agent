@@ -18,7 +18,7 @@ from openai.types.chat import (
     ChatCompletionMessageParam,
 )
 
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 
 
 def openai_to_multipart(

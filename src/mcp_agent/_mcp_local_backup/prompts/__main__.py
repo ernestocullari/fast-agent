@@ -1,4 +1,4 @@
-from mcp_agent.mcp.prompts.prompt_server import main
+from mcp_agent._mcp_local_backup.prompts.prompt_server import main
 
 # This must be here for the console entry points defined in pyproject.toml
 # DO NOT REMOVE!

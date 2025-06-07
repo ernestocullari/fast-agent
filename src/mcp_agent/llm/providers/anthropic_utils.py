@@ -15,7 +15,7 @@ from mcp.types import (
     TextResourceContents,
 )
 
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 
 
 # TODO -- only used for saving, but this will be driven directly from PromptMessages

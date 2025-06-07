@@ -10,7 +10,7 @@ from mcp.types import (
 )
 from pydantic import BaseModel
 
-from mcp_agent.mcp.helpers.content_helpers import get_text
+from mcp_agent._mcp_local_backup.helpers.content_helpers import get_text
 
 
 class PromptMessageMultipart(BaseModel):

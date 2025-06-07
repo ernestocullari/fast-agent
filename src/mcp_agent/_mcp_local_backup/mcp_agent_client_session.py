@@ -20,8 +20,8 @@ from pydantic import FileUrl
 
 from mcp_agent.context_dependent import ContextDependent
 from mcp_agent.logging.logger import get_logger
-from mcp_agent.mcp.helpers.server_config_helpers import get_server_config
-from mcp_agent.mcp.sampling import sample
+from mcp_agent._mcp_local_backup.helpers.server_config_helpers import get_server_config
+from mcp_agent._mcp_local_backup.sampling import sample
 
 if TYPE_CHECKING:
     from mcp_agent.config import MCPServerSettings

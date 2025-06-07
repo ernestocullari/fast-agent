@@ -10,11 +10,11 @@ from mcp.types import CreateMessageRequestParams, CreateMessageResult, TextConte
 from mcp_agent.core.agent_types import AgentConfig
 from mcp_agent.llm.sampling_converter import SamplingConverter
 from mcp_agent.logging.logger import get_logger
-from mcp_agent.mcp.helpers.server_config_helpers import get_server_config
-from mcp_agent.mcp.interfaces import AugmentedLLMProtocol
+from mcp_agent._mcp_local_backup.helpers.server_config_helpers import get_server_config
+from mcp_agent._mcp_local_backup.interfaces import AugmentedLLMProtocol
 
 if TYPE_CHECKING:
-    from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+    from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 
 logger = get_logger(__name__)
 
@@ -101,7 +101,7 @@ async def sample(mcp_ctx: ClientSession, params: CreateMessageRequestParams) -> 
             
             if auto_sampling_enabled:
                 # Import here to avoid circular import
-                from mcp_agent.mcp.mcp_agent_client_session import MCPAgentClientSession
+                from mcp_agent._mcp_local_backup.mcp_agent_client_session import MCPAgentClientSession
                 
                 # Try agent's model first (from the session)
                 if (hasattr(mcp_ctx, 'session') and 

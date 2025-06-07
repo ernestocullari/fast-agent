@@ -35,9 +35,9 @@ from mcp_agent.core.fastagent import FastAgent
 from mcp_agent.core.request_params import RequestParams
 
 # Core protocol interfaces
-from mcp_agent.mcp.interfaces import AgentProtocol, AugmentedLLMProtocol
-from mcp_agent.mcp.mcp_aggregator import MCPAggregator
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+from mcp_agent._mcp_local_backup.interfaces import AgentProtocol, AugmentedLLMProtocol
+from mcp_agent._mcp_local_backup.mcp_aggregator import MCPAggregator
+from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 
 __all__ = [
     # MCP types

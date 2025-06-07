@@ -12,7 +12,7 @@ from mcp_agent.core.agent_types import AgentConfig
 from mcp_agent.core.interactive_prompt import InteractivePrompt
 from mcp_agent.human_input.types import HumanInputCallback
 from mcp_agent.logging.logger import get_logger
-from mcp_agent.mcp.interfaces import AugmentedLLMProtocol
+from mcp_agent._mcp_local_backup.interfaces import AugmentedLLMProtocol
 
 if TYPE_CHECKING:
     from mcp_agent.context import Context

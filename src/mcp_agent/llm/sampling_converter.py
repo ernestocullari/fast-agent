@@ -12,8 +12,8 @@ from mcp.types import (
     TextContent,
 )
 
-from mcp_agent.mcp.interfaces import RequestParams
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+from mcp_agent._mcp_local_backup.interfaces import RequestParams
+from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 
 
 class SamplingConverter:

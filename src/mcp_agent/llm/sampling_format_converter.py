@@ -2,7 +2,7 @@ from typing import Generic, List, Protocol, TypeVar
 
 from mcp.types import PromptMessage
 
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 
 # Define covariant type variables
 MessageParamT_co = TypeVar("MessageParamT_co", covariant=True)

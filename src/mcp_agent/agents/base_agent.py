@@ -25,11 +25,14 @@ from mcp.types import (
     CallToolResult,
     EmbeddedResource,
     GetPromptResult,
-    ListToolsResult,
+    ImageContent,
+    Prompt,
     PromptMessage,
     ReadResourceResult,
+    Role,
     TextContent,
     Tool,
+    ListToolsResult,
 )
 from opentelemetry import trace
 from pydantic import BaseModel
@@ -45,9 +48,9 @@ from mcp_agent.human_input.types import (
     HumanInputResponse,
 )
 from mcp_agent.logging.logger import get_logger
-from mcp_agent.mcp.interfaces import AgentProtocol, AugmentedLLMProtocol
-from mcp_agent.mcp.mcp_aggregator import MCPAggregator
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+from mcp_agent._mcp_local_backup.interfaces import AgentProtocol, AugmentedLLMProtocol
+from mcp_agent._mcp_local_backup.mcp_aggregator import MCPAggregator
+from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 
 # Define a TypeVar for models
 ModelT = TypeVar("ModelT", bound=BaseModel)

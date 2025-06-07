@@ -29,7 +29,7 @@ from pydantic import BaseModel
 
 from mcp_agent.core.agent_types import AgentType
 from mcp_agent.core.request_params import RequestParams
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 
 
 @runtime_checkable

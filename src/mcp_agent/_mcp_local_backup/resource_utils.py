@@ -10,7 +10,7 @@ from mcp.types import (
 )
 from pydantic import AnyUrl
 
-import mcp_agent.mcp.mime_utils as mime_utils
+from mcp_agent._mcp_local_backup import mime_utils
 
 HTTP_TIMEOUT = 10  # Default timeout for HTTP requests
 

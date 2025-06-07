@@ -13,12 +13,12 @@ from mcp.types import (
     TextContent,
 )
 
-from mcp_agent.mcp.helpers.content_helpers import get_image_data, get_text
+from mcp_agent._mcp_local_backup.helpers.content_helpers import get_image_data, get_text
 
 # Forward reference for PromptMessageMultipart, actual import happens at runtime
 PromptMessageMultipartType = Union[object]  # Will be replaced with actual type
 try:
-    from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+    from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
     PromptMessageMultipartType = PromptMessageMultipart
 except ImportError:
     # During initialization, there might be a circular import.

@@ -31,8 +31,8 @@ from mcp_agent.context_dependent import ContextDependent
 from mcp_agent.core.exceptions import ServerInitializationError
 from mcp_agent.event_progress import ProgressAction
 from mcp_agent.logging.logger import get_logger
-from mcp_agent.mcp.logger_textio import get_stderr_handler
-from mcp_agent.mcp.mcp_agent_client_session import MCPAgentClientSession
+from mcp_agent._mcp_local_backup.logger_textio import get_stderr_handler
+from mcp_agent._mcp_local_backup.mcp_agent_client_session import MCPAgentClientSession
 
 if TYPE_CHECKING:
     from mcp_agent.context import Context

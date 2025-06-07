@@ -19,7 +19,7 @@ from mcp_agent.llm.providers.augmented_llm_google_oai import GoogleOaiAugmentedL
 from mcp_agent.llm.providers.augmented_llm_openai import OpenAIAugmentedLLM
 from mcp_agent.llm.providers.augmented_llm_openrouter import OpenRouterAugmentedLLM
 from mcp_agent.llm.providers.augmented_llm_tensorzero import TensorZeroAugmentedLLM
-from mcp_agent.mcp.interfaces import AugmentedLLMProtocol
+from mcp_agent._mcp_local_backup.interfaces import AugmentedLLMProtocol
 
 # from mcp_agent.workflows.llm.augmented_llm_deepseek import DeekSeekAugmentedLLM
 

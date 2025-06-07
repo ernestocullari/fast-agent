@@ -16,11 +16,11 @@ from mcp.types import (
 )
 from pydantic import BaseModel, field_validator
 
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
-from mcp_agent.mcp.prompt_serialization import (
+from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
+from mcp_agent._mcp_local_backup.prompt_serialization import (
     multipart_messages_to_delimited_format,
 )
-from mcp_agent.mcp.prompts.prompt_constants import (
+from mcp_agent._mcp_local_backup.prompts.prompt_constants import (
     ASSISTANT_DELIMITER,
     DEFAULT_DELIMITER_MAP,
     RESOURCE_DELIMITER,

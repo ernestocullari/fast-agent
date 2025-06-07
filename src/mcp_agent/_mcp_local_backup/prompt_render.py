@@ -6,14 +6,14 @@ from typing import List
 
 from mcp.types import BlobResourceContents, TextResourceContents
 
-from mcp_agent.mcp.helpers.content_helpers import (
+from mcp_agent._mcp_local_backup.helpers.content_helpers import (
     get_resource_uri,
     get_text,
     is_image_content,
     is_resource_content,
     is_text_content,
 )
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 
 
 def render_multipart_message(message: PromptMessageMultipart) -> str:

@@ -23,7 +23,7 @@ from mcp_agent.llm.augmented_llm import AugmentedLLM
 from mcp_agent.llm.memory import Memory, SimpleMemory
 from mcp_agent.llm.provider_types import Provider
 from mcp_agent.llm.providers.multipart_converter_tensorzero import TensorZeroConverter
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 
 
 class TensorZeroAugmentedLLM(AugmentedLLM[Dict[str, Any], Any]):

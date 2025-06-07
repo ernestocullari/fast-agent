@@ -24,7 +24,7 @@ from mcp_agent.llm.provider_types import Provider
 
 # Import the new converter class
 from mcp_agent.llm.providers.google_converter import GoogleConverter
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 
 # Define default model and potentially other Google-specific defaults
 DEFAULT_GOOGLE_MODEL = "gemini-2.0-flash"

@@ -9,10 +9,10 @@ from mcp.types import (
 )
 
 from mcp_agent.logging.logger import get_logger
-from mcp_agent.mcp.helpers.content_helpers import (
+from mcp_agent._mcp_local_backup.helpers.content_helpers import (
     get_text,
 )
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 
 _logger = get_logger(__name__)
 

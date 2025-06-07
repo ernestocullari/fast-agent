@@ -36,14 +36,14 @@ from mcp_agent.llm.sampling_format_converter import (
     ProviderFormatConverter,
 )
 from mcp_agent.logging.logger import get_logger
-from mcp_agent.mcp.helpers.content_helpers import get_text
-from mcp_agent.mcp.interfaces import (
+from mcp_agent._mcp_local_backup.helpers.content_helpers import get_text
+from mcp_agent._mcp_local_backup.interfaces import (
     AugmentedLLMProtocol,
     ModelT,
 )
-from mcp_agent.mcp.mcp_aggregator import MCPAggregator
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
-from mcp_agent.mcp.prompt_render import render_multipart_message
+from mcp_agent._mcp_local_backup.mcp_aggregator import MCPAggregator
+from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
+from mcp_agent._mcp_local_backup.prompt_render import render_multipart_message
 from mcp_agent.ui.console_display import ConsoleDisplay
 
 # Define type variables locally
@@ -586,7 +586,7 @@ class AugmentedLLM(ContextDependent, AugmentedLLMProtocol, Generic[MessageParamT
             String representation of the assistant's response if generated,
             or the last assistant message in the prompt
         """
-        from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+        from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 
         # Check if we have any messages
         if not prompt_result.messages:
@@ -619,7 +619,7 @@ class AugmentedLLM(ContextDependent, AugmentedLLMProtocol, Generic[MessageParamT
         Uses JSON format for .json files (MCP SDK compatible format) and
         delimited text format for other extensions.
         """
-        from mcp_agent.mcp.prompt_serialization import save_messages_to_file
+        from mcp_agent._mcp_local_backup.prompt_serialization import save_messages_to_file
 
         # Save messages using the unified save function that auto-detects format
         save_messages_to_file(self._message_history, filename)

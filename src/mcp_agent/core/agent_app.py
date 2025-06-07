@@ -9,7 +9,7 @@ from mcp.types import PromptMessage
 
 from mcp_agent.agents.agent import Agent
 from mcp_agent.core.interactive_prompt import InteractivePrompt
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 
 
 class AgentApp:

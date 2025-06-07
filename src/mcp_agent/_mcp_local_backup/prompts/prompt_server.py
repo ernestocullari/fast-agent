@@ -24,17 +24,17 @@ from mcp.types import PromptMessage
 from pydantic import AnyUrl
 
 from mcp_agent.mcp import mime_utils, resource_utils
-from mcp_agent.mcp.prompts.prompt_constants import (
+from mcp_agent._mcp_local_backup.prompts.prompt_constants import (
     ASSISTANT_DELIMITER as DEFAULT_ASSISTANT_DELIMITER,
 )
-from mcp_agent.mcp.prompts.prompt_constants import (
+from mcp_agent._mcp_local_backup.prompts.prompt_constants import (
     RESOURCE_DELIMITER as DEFAULT_RESOURCE_DELIMITER,
 )
-from mcp_agent.mcp.prompts.prompt_constants import (
+from mcp_agent._mcp_local_backup.prompts.prompt_constants import (
     USER_DELIMITER as DEFAULT_USER_DELIMITER,
 )
-from mcp_agent.mcp.prompts.prompt_load import create_messages_with_resources
-from mcp_agent.mcp.prompts.prompt_template import (
+from mcp_agent._mcp_local_backup.prompts.prompt_load import create_messages_with_resources
+from mcp_agent._mcp_local_backup.prompts.prompt_template import (
     PromptMetadata,
     PromptTemplateLoader,
 )
@@ -147,7 +147,7 @@ def register_prompt(file_path: Path, config: Optional[PromptConfig] = None) -> N
             # Simple JSON handling - just load and register directly
             from mcp.server.fastmcp.prompts.base import Prompt, PromptArgument
 
-            from mcp_agent.mcp.prompts.prompt_load import load_prompt
+            from mcp_agent._mcp_local_backup.prompts.prompt_load import load_prompt
 
             # Create metadata with minimal information
             metadata = PromptMetadata(

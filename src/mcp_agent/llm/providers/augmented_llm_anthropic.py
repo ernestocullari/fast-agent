@@ -10,13 +10,11 @@ from mcp_agent.llm.providers.multipart_converter_anthropic import (
 from mcp_agent.llm.providers.sampling_converter_anthropic import (
     AnthropicSamplingConverter,
 )
-from mcp_agent.mcp.interfaces import ModelT
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+from mcp_agent._mcp_local_backup.interfaces import ModelT
+from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 
 if TYPE_CHECKING:
-    from mcp import ListToolsResult
-
-
+    from mcp.types import ListToolsResult
 from anthropic import Anthropic, AuthenticationError
 from anthropic.types import (
     Message,

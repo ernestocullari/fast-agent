@@ -6,8 +6,8 @@ from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStre
 from mcp import ClientSession
 
 from mcp_agent.logging.logger import get_logger
-from mcp_agent.mcp.interfaces import ServerRegistryProtocol
-from mcp_agent.mcp.mcp_agent_client_session import MCPAgentClientSession
+from mcp_agent._mcp_local_backup.interfaces import ServerRegistryProtocol
+from mcp_agent._mcp_local_backup.mcp_agent_client_session import MCPAgentClientSession
 
 logger = get_logger(__name__)
 

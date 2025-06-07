@@ -28,7 +28,7 @@ async def _run_agent(
     from pathlib import Path
 
     from mcp_agent.config import MCPServerSettings, MCPSettings
-    from mcp_agent.mcp.prompts.prompt_load import load_prompt_multipart
+    from mcp_agent._mcp_local_backup.prompts.prompt_load import load_prompt_multipart
 
     # Create the FastAgent instance
     fast_kwargs = {

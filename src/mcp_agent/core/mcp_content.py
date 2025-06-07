@@ -21,7 +21,7 @@ from mcp.types import (
 )
 from pydantic import AnyUrl
 
-from mcp_agent.mcp.mime_utils import (
+from mcp_agent._mcp_local_backup.mime_utils import (
     guess_mime_type,
     is_binary_content,
     is_image_mime_type,
@@ -152,8 +152,10 @@ def MCPFile(
 
 
 def MCPPrompt(
-    *content_items: Union[dict, str, Path, bytes, MCPContentType, 'EmbeddedResource', 'ReadResourceResult'], 
-    role: Literal["user", "assistant"] = "user"
+    *content_items: Union[
+        dict, str, Path, bytes, MCPContentType, "EmbeddedResource", "ReadResourceResult"
+    ],
+    role: Literal["user", "assistant"] = "user",
 ) -> List[dict]:
     """
     Create one or more prompt messages with various content types.
@@ -209,19 +211,25 @@ def MCPPrompt(
         elif isinstance(item, EmbeddedResource):
             # Already an EmbeddedResource, wrap in a message
             result.append({"role": role, "content": item})
-        elif hasattr(item, 'type') and item.type == 'resource' and hasattr(item, 'resource'):
+        elif hasattr(item, "type") and item.type == "resource" and hasattr(item, "resource"):
             # Looks like an EmbeddedResource but may not be the exact class
-            result.append({"role": role, "content": EmbeddedResource(type="resource", resource=item.resource)})
+            result.append(
+                {"role": role, "content": EmbeddedResource(type="resource", resource=item.resource)}
+            )
         elif isinstance(item, ResourceContents):
             # It's a ResourceContents, wrap it in an EmbeddedResource
-            result.append({"role": role, "content": EmbeddedResource(type="resource", resource=item)})
+            result.append(
+                {"role": role, "content": EmbeddedResource(type="resource", resource=item)}
+            )
         elif isinstance(item, ReadResourceResult):
             # It's a ReadResourceResult, convert each resource content
             for resource_content in item.contents:
-                result.append({
-                    "role": role, 
-                    "content": EmbeddedResource(type="resource", resource=resource_content)
-                })
+                result.append(
+                    {
+                        "role": role,
+                        "content": EmbeddedResource(type="resource", resource=resource_content),
+                    }
+                )
         else:
             # Try to convert to string
             result.append(MCPText(str(item), role=role))
@@ -229,12 +237,20 @@ def MCPPrompt(
     return result
 
 
-def User(*content_items: Union[dict, str, Path, bytes, MCPContentType, 'EmbeddedResource', 'ReadResourceResult']) -> List[dict]:
+def User(
+    *content_items: Union[
+        dict, str, Path, bytes, MCPContentType, "EmbeddedResource", "ReadResourceResult"
+    ],
+) -> List[dict]:
     """Create user message(s) with various content types."""
     return MCPPrompt(*content_items, role="user")
 
 
-def Assistant(*content_items: Union[dict, str, Path, bytes, MCPContentType, 'EmbeddedResource', 'ReadResourceResult']) -> List[dict]:
+def Assistant(
+    *content_items: Union[
+        dict, str, Path, bytes, MCPContentType, "EmbeddedResource", "ReadResourceResult"
+    ],
+) -> List[dict]:
     """Create assistant message(s) with various content types."""
     return MCPPrompt(*content_items, role="assistant")
 

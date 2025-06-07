@@ -5,8 +5,8 @@ from rich.panel import Panel
 from rich.text import Text
 
 from mcp_agent import console
-from mcp_agent.mcp.common import SEP
-from mcp_agent.mcp.mcp_aggregator import MCPAggregator
+from mcp_agent._mcp_local_backup.common import SEP
+from mcp_agent._mcp_local_backup.mcp_aggregator import MCPAggregator
 
 # Constants
 HUMAN_INPUT_TOOL_NAME = "__human_input__"

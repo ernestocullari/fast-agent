@@ -14,14 +14,14 @@ from mcp.types import (
 )
 
 from mcp_agent.core.request_params import RequestParams
-from mcp_agent.mcp.helpers.content_helpers import (
+from mcp_agent._mcp_local_backup.helpers.content_helpers import (
     get_image_data,
     get_text,
     is_image_content,
     is_resource_content,
     is_text_content,
 )
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 from mcp_agent.tools.tool_definition import ToolDefinition
 
 

@@ -11,7 +11,7 @@ from mcp_agent.llm.augmented_llm import (
 )
 from mcp_agent.llm.provider_types import Provider
 from mcp_agent.logging.logger import get_logger
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 
 CALL_TOOL_INDICATOR = "***CALL_TOOL"
 FIXED_RESPONSE_INDICATOR = "***FIXED_RESPONSE"
