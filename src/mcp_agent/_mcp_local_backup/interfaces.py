@@ -23,7 +23,7 @@ from typing import (
 from a2a_types.types import AgentCard
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from deprecated import deprecated
-from mcp import ClientSession
+from aiohttp import ClientSession
 from mcp.types import GetPromptResult, Prompt, PromptMessage, ReadResourceResult
 from pydantic import BaseModel
 

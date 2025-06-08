@@ -2,11 +2,19 @@
 Request parameters definitions for LLM interactions.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+from pydantic import BaseModel, Field
 
-from mcp.types import SamplingMessage
-from mcp.types import CreateMessageRequestParams
-from pydantic import Field
+
+class SamplingMessage(BaseModel):
+    role: str
+    content: str
+
+
+class CreateMessageRequestParams(BaseModel):
+    message: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    additional_inputs: Optional[Dict[str, Any]] = None
 
 
 class RequestParams(CreateMessageRequestParams):
@@ -43,6 +51,7 @@ class RequestParams(CreateMessageRequestParams):
     """
     Whether to allow simultaneous tool calls
     """
+
     response_format: Any | None = None
     """
     Override response format for structured calls. Prefer sending pydantic model - only use in exceptional circumstances
