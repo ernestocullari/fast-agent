@@ -3,7 +3,7 @@ from datetime import timedelta
 from typing import AsyncGenerator, Callable
 
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
-from mcp import ClientSession
+from aiohttp import ClientSession
 
 from mcp_agent.logging.logger import get_logger
 from mcp_agent._mcp_local_backup.interfaces import ServerRegistryProtocol
