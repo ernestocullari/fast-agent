@@ -1,10 +1,14 @@
 # Placeholder for stdio client integration
 
-
 class StdioServerParameters:
     def __init__(self, *args, **kwargs):
         raise NotImplementedError("Stub: StdioServerParameters")
 
-
 def sse_client(*args, **kwargs):
-    raise NotImplementedError("sse_client stub — implement this later.")
+    raise NotImplementedError("Stub: sse_client")
+
+def connect_stdio(*args, **kwargs):
+    raise NotImplementedError("Stub: connect_stdio")
+
+def get_default_environment(*args, **kwargs):
+    raise NotImplementedError("Stub: get_default_environment")
