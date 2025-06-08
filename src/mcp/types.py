@@ -76,3 +76,11 @@ class TextResourceContents(BaseModel):
     id: str
     text: str
     content_type: Optional[str] = None
+
+
+class Annotations(BaseModel):
+    start: int
+    end: int
+    label: str
+    confidence: Optional[float] = None
+    metadata: Optional[Dict[str, Any]] = None
