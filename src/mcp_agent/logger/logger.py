@@ -19,7 +19,7 @@ from mcp_agent.logger.listeners import (
     LoggingListener,
     ProgressListener,
 )
-from mcp_agent.logging.transport import AsyncEventBus, EventTransport
+from mcp_agent.logger.transport import AsyncEventBus, EventTransport
 
 
 class Logger:
