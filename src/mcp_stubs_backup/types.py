@@ -118,3 +118,18 @@ class CreateMessageResult(BaseModel):
     message_id: str
     content: str
     metadata: Optional[Dict[str, Any]] = None
+
+
+# src/mcp/types.py
+
+# === Placeholder types for MCP protocol ===
+
+
+class JSONRPCMessage:
+    def __init__(self, *args, **kwargs):
+        raise NotImplementedError("Stub: JSONRPCMessage")
+
+
+class ServerCapabilities:
+    def __init__(self, *args, **kwargs):
+        raise NotImplementedError("Stub: ServerCapabilities")

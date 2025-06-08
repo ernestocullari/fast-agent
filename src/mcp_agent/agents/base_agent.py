@@ -63,9 +63,10 @@ if TYPE_CHECKING:
     from mcp_agent.context import Context
 
 
-DEFAULT_CAPABILITIES = AgentCapabilities(
-    streaming=False, pushNotifications=False, stateTransitionHistory=False
-)
+DEFAULT_CAPABILITIES = AgentCapabilities()
+DEFAULT_CAPABILITIES.streaming = False
+DEFAULT_CAPABILITIES.pushNotifications = False
+DEFAULT_CAPABILITIES.stateTransitionHistory = False
 
 
 class BaseAgent(MCPAggregator, AgentProtocol):

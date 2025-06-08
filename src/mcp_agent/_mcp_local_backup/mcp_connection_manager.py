@@ -24,7 +24,7 @@ from mcp.client.stdio import (
     stdio_client,
 )
 from mcp.client.streamable_http import GetSessionIdCallback, streamablehttp_client
-from mcp.types import JSONRPCMessage, ServerCapabilities
+from mcp_agent._mcp_local_backup.mcp_compatibility import JSONRPCMessage, ServerCapabilities
 
 from mcp_agent.config import MCPServerSettings
 from mcp_agent.context_dependent import ContextDependent
