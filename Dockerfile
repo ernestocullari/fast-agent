@@ -11,4 +11,5 @@ COPY . .
 
 ENV PYTHONPATH=/app
 
-CMD ["python", "-m", "uvicorn", "src.mcp_agent.railway_app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Use the Python script directly (it handles PORT internally)
+CMD ["python", "src/mcp_agent/railway_app.py"]

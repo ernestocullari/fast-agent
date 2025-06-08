@@ -5,7 +5,6 @@ from pydantic import BaseModel
 from typing import Dict, Any, Optional
 from datetime import datetime
 
-# Simple models for n8n integration
 class GeofencingTrigger(BaseModel):
     user_id: str
     location: Dict[str, float]
@@ -19,14 +18,12 @@ class AIRequest(BaseModel):
     context: Optional[Dict[str, Any]] = {}
     provider: Optional[str] = "auto"
 
-# Create FastAPI app
 app = FastAPI(
     title="MCP AI Geofencing System",
     description="AI-powered geofencing marketing automation",
     version="1.0.0"
 )
 
-# CORS for n8n
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -58,7 +55,6 @@ async def health_check():
 
 @app.post("/api/geofencing/trigger")
 async def geofencing_trigger(trigger: GeofencingTrigger):
-    """Main geofencing webhook endpoint for n8n"""
     try:
         response = {
             "trigger_id": f"geo_{trigger.user_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
@@ -82,21 +78,18 @@ async def geofencing_trigger(trigger: GeofencingTrigger):
 
 @app.post("/api/ai/chat")
 async def ai_chat(request: AIRequest):
-    """AI chat endpoint for n8n workflows"""
     try:
-        ai_response = {
+        return {
             "response": f"AI response to: {request.message}",
             "provider": request.provider,
             "timestamp": datetime.utcnow().isoformat(),
             "context": request.context
         }
-        return ai_response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/n8n/webhook-info")
 async def n8n_webhook_info():
-    """Webhook setup info for n8n"""
     base_url = os.environ.get("RAILWAY_STATIC_URL", "https://your-app.railway.app")
     return {
         "system": "MCP + FastAPI Hybrid",
