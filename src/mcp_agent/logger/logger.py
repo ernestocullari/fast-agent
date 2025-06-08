@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager, contextmanager
 from typing import Any, Dict
 
 from mcp_agent.logger.events import Event, EventContext, EventFilter, EventType
-from mcp_agent.logging.listeners import (
+from mcp_agent.logger.listeners import (
     BatchingListener,
     LoggingListener,
     ProgressListener,
