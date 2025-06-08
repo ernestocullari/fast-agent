@@ -58,3 +58,9 @@ class Tool(BaseModel):
 
 class ListToolsResult(BaseModel):
     tools: List[Tool]
+
+
+class CreateMessageRequestParams(BaseModel):
+    message: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    additional_inputs: Optional[Dict[str, Any]] = None
