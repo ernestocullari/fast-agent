@@ -5,3 +5,4 @@ mcp_agent @ git+https://github.com/ernestocullari/fast-agent@4f22f3967f84daeff10
 opentelemetry-api
 opentelemetry-sdk
 opentelemetry-exporter-otlp
+rich>=13.0.0
