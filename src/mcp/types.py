@@ -84,3 +84,8 @@ class Annotations(BaseModel):
     label: str
     confidence: Optional[float] = None
     metadata: Optional[Dict[str, Any]] = None
+
+
+class ResourceContents(BaseModel):
+    blob: Optional[BlobResourceContents] = None
+    text: Optional[TextResourceContents] = None
