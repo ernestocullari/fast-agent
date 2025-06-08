@@ -11,7 +11,7 @@ from typing import (
 )
 
 from mcp.types import GetPromptResult, ReadResourceResult, ListToolsResult
-from mcp.client.session import ClientSession
+from aiohttp import ClientSession
 from mcp.types import (
     CallToolResult,
     ListToolsResult,
