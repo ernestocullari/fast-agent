@@ -89,3 +89,26 @@ class Annotations(BaseModel):
 class ResourceContents(BaseModel):
     blob: Optional[BlobResourceContents] = None
     text: Optional[TextResourceContents] = None
+
+
+class ErrorData(BaseModel):
+    message: str
+    code: Optional[int] = None
+
+
+class Implementation(BaseModel):
+    name: str
+
+
+class ListRootsResult(BaseModel):
+    roots: List[str]
+
+
+class Root(BaseModel):
+    id: str
+    name: str
+
+
+class ToolListChangedNotification(BaseModel):
+    tool_name: str
+    change_type: str
