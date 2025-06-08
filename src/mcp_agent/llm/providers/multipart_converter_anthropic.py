@@ -23,7 +23,7 @@ from mcp.types import (
     TextResourceContents,
 )
 
-from mcp_agent.logging.logger import get_logger
+from mcp_agent.logger.logger import get_logger
 from mcp_agent._mcp_local_backup.helpers.content_helpers import (
     get_image_data,
     get_resource_uri,
@@ -210,7 +210,7 @@ class AnthropicConverter:
                 return ImageBlockParam(
                     type="image", source=URLImageSourceParam(type="url", url=uri_str)
                 )
-            
+
             # Try to get image data
             image_data = get_image_data(resource)
             if image_data:
@@ -220,7 +220,7 @@ class AnthropicConverter:
                         type="base64", media_type=mime_type, data=image_data
                     ),
                 )
-            
+
             return AnthropicConverter._create_fallback_text("Image missing data", resource)
 
         elif mime_type == "application/pdf":

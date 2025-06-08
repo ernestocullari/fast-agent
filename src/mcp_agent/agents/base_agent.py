@@ -47,7 +47,7 @@ from mcp_agent.human_input.types import (
     HumanInputRequest,
     HumanInputResponse,
 )
-from mcp_agent.logging.logger import get_logger
+from mcp_agent.logger.logger import get_logger
 from mcp_agent._mcp_local_backup.interfaces import AgentProtocol, AugmentedLLMProtocol
 from mcp_agent._mcp_local_backup.mcp_aggregator import MCPAggregator
 from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart

@@ -5,7 +5,7 @@ from typing import AsyncGenerator, Callable
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from aiohttp import ClientSession
 
-from mcp_agent.logging.logger import get_logger
+from mcp_agent.logger.logger import get_logger
 from mcp_agent._mcp_local_backup.interfaces import ServerRegistryProtocol
 from mcp_agent._mcp_local_backup.mcp_agent_client_session import MCPAgentClientSession
 

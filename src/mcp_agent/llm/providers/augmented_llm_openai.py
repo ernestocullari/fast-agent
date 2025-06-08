@@ -31,7 +31,7 @@ from mcp_agent.llm.providers.multipart_converter_openai import OpenAIConverter, 
 from mcp_agent.llm.providers.sampling_converter_openai import (
     OpenAISamplingConverter,
 )
-from mcp_agent.logging.logger import get_logger
+from mcp_agent.logger.logger import get_logger
 from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 
 _logger = get_logger(__name__)

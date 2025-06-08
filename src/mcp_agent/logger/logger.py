@@ -13,7 +13,7 @@ import time
 from contextlib import asynccontextmanager, contextmanager
 from typing import Any, Dict
 
-from mcp_agent.logging.events import Event, EventContext, EventFilter, EventType
+from mcp_agent.logger.events import Event, EventContext, EventFilter, EventType
 from mcp_agent.logging.listeners import (
     BatchingListener,
     LoggingListener,

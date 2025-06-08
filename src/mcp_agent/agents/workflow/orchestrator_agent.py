@@ -31,7 +31,7 @@ from mcp_agent.core.agent_types import AgentConfig, AgentType
 from mcp_agent.core.exceptions import AgentConfigError
 from mcp_agent.core.prompt import Prompt
 from mcp_agent.core.request_params import RequestParams
-from mcp_agent.logging.logger import get_logger
+from mcp_agent.logger.logger import get_logger
 from mcp_agent._mcp_local_backup.interfaces import ModelT
 from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 

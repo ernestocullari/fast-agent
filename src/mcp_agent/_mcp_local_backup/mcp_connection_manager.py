@@ -30,7 +30,7 @@ from mcp_agent.config import MCPServerSettings
 from mcp_agent.context_dependent import ContextDependent
 from mcp_agent.core.exceptions import ServerInitializationError
 from mcp_agent.event_progress import ProgressAction
-from mcp_agent.logging.logger import get_logger
+from mcp_agent.logger.logger import get_logger
 from mcp_agent._mcp_local_backup.logger_textio import get_stderr_handler
 from mcp_agent._mcp_local_backup.mcp_agent_client_session import MCPAgentClientSession
 
@@ -166,10 +166,7 @@ class ServerConnection:
         )
 
         session = self._client_session_factory(
-            read_stream, 
-            send_stream, 
-            read_timeout,
-            server_config=self.server_config
+            read_stream, send_stream, read_timeout, server_config=self.server_config
         )
 
         self.session = session

@@ -55,7 +55,7 @@ from mcp_agent.core.validation import (
     validate_server_references,
     validate_workflow_references,
 )
-from mcp_agent.logging.logger import get_logger
+from mcp_agent.logger.logger import get_logger
 from mcp_agent._mcp_local_backup.prompts.prompt_load import load_prompt_multipart
 
 if TYPE_CHECKING:

@@ -8,7 +8,7 @@ from mcp.types import (
     TextContent,
 )
 
-from mcp_agent.logging.logger import get_logger
+from mcp_agent.logger.logger import get_logger
 from mcp_agent._mcp_local_backup.helpers.content_helpers import (
     get_text,
 )

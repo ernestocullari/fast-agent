@@ -8,7 +8,7 @@ from mcp.server.fastmcp.prompts.base import (
 )
 from mcp.types import PromptMessage, TextContent
 
-from mcp_agent.logging.logger import get_logger
+from mcp_agent.logger.logger import get_logger
 from mcp_agent._mcp_local_backup import mime_utils, resource_utils
 from mcp_agent._mcp_local_backup.prompt_message_multipart import PromptMessageMultipart
 from mcp_agent._mcp_local_backup.prompts.prompt_template import (

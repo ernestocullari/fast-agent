@@ -24,7 +24,7 @@ from pydantic import AnyUrl, BaseModel, ConfigDict
 
 from mcp_agent.context_dependent import ContextDependent
 from mcp_agent.event_progress import ProgressAction
-from mcp_agent.logging.logger import get_logger
+from mcp_agent.logger.logger import get_logger
 from mcp_agent._mcp_local_backup.common import SEP, create_namespaced_name, is_namespaced_name
 from mcp_agent._mcp_local_backup.gen_client import gen_client
 from mcp_agent._mcp_local_backup.mcp_agent_client_session import MCPAgentClientSession

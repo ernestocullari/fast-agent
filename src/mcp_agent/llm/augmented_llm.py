@@ -35,7 +35,7 @@ from mcp_agent.llm.sampling_format_converter import (
     BasicFormatConverter,
     ProviderFormatConverter,
 )
-from mcp_agent.logging.logger import get_logger
+from mcp_agent.logger.logger import get_logger
 from mcp_agent._mcp_local_backup.helpers.content_helpers import get_text
 from mcp_agent._mcp_local_backup.interfaces import (
     AugmentedLLMProtocol,

@@ -26,7 +26,7 @@ from mcp_agent.config import (
     Settings,
     get_settings,
 )
-from mcp_agent.logging.logger import get_logger
+from mcp_agent.logger.logger import get_logger
 from mcp_agent._mcp_local_backup.logger_textio import get_stderr_handler
 from mcp_agent._mcp_local_backup.mcp_connection_manager import (
     MCPConnectionManager,
@@ -72,7 +72,11 @@ class ServerRegistry:
         """
         if config is None:
             self.registry = self.load_registry_from_file(config_path)
-        elif config.mcp is not None and hasattr(config.mcp, 'servers') and config.mcp.servers is not None:
+        elif (
+            config.mcp is not None
+            and hasattr(config.mcp, "servers")
+            and config.mcp.servers is not None
+        ):
             # Ensure config.mcp exists, has a 'servers' attribute, and it's not None
             self.registry = config.mcp.servers
         else:
@@ -94,13 +98,17 @@ class ServerRegistry:
         Raises:
             ValueError: If the configuration is invalid.
         """
-        servers = {} 
+        servers = {}
 
         settings = get_settings(config_path)
-        
-        if settings.mcp is not None and hasattr(settings.mcp, 'servers') and settings.mcp.servers is not None:
+
+        if (
+            settings.mcp is not None
+            and hasattr(settings.mcp, "servers")
+            and settings.mcp.servers is not None
+        ):
             return settings.mcp.servers
-        
+
         return servers
 
     @asynccontextmanager

@@ -36,7 +36,7 @@ from mcp_agent.llm.augmented_llm import (
     AugmentedLLM,
     RequestParams,
 )
-from mcp_agent.logging.logger import get_logger
+from mcp_agent.logger.logger import get_logger
 
 DEFAULT_ANTHROPIC_MODEL = "claude-3-7-sonnet-latest"
 
