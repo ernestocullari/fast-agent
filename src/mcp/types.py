@@ -64,3 +64,9 @@ class CreateMessageRequestParams(BaseModel):
     message: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
     additional_inputs: Optional[Dict[str, Any]] = None
+
+
+class BlobResourceContents(BaseModel):
+    id: str
+    data: Union[str, bytes]
+    content_type: Optional[str] = None
