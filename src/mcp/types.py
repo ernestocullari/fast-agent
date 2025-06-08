@@ -112,3 +112,9 @@ class Root(BaseModel):
 class ToolListChangedNotification(BaseModel):
     tool_name: str
     change_type: str
+
+
+class CreateMessageResult(BaseModel):
+    message_id: str
+    content: str
+    metadata: Optional[Dict[str, Any]] = None
