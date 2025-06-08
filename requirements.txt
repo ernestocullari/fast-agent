@@ -7,3 +7,4 @@ opentelemetry-sdk
 opentelemetry-exporter-otlp
 rich>=13.0.0
 pydantic-settings>=2.0.0
+deprecated>=1.2.13
