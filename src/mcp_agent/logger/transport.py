@@ -21,7 +21,7 @@ from mcp_agent.config import LoggerSettings
 from mcp_agent.console import console
 from mcp_agent.logger.events import Event, EventFilter
 from mcp_agent.logger.json_serializer import JSONSerializer
-from mcp_agent.logging.listeners import EventListener, LifecycleAwareListener
+from mcp_agent.logger.listeners import EventListener, LifecycleAwareListener
 
 
 class EventTransport(Protocol):

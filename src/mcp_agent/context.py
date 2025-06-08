@@ -24,9 +24,9 @@ from pydantic import BaseModel, ConfigDict
 from mcp_agent.config import Settings, get_settings
 from mcp_agent.executor.executor import AsyncioExecutor, Executor
 from mcp_agent.executor.task_registry import ActivityRegistry
-from mcp_agent.logging.events import EventFilter
-from mcp_agent.logging.logger import LoggingConfig, get_logger
-from mcp_agent.logging.transport import create_transport
+from mcp_agent.logger.events import EventFilter
+from mcp_agent.logger.logger import LoggingConfig, get_logger
+from mcp_agent.logger.transport import create_transport
 from mcp_agent.mcp_server_registry import ServerRegistry
 
 if TYPE_CHECKING:
