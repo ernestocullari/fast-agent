@@ -9,9 +9,11 @@ from typing import TYPE_CHECKING
 from aiohttp import ClientSession
 from pydantic import FileUrl
 
+
 # Stub class (ensure it's temporary only if you're waiting on implementation)
 class ServerNotification:
     pass
+
 
 from mcp.shared.session import (
     ProgressFnT,
@@ -31,3 +33,13 @@ from mcp.types import (
 )
 
 from mcp_agent.context_dependent import ContextDependent
+
+
+class MCPAgentClientSession(ClientSession, ContextDependent):
+    """
+    Temporary stub for MCPAgentClientSession.
+    Replace with real implementation as needed.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
