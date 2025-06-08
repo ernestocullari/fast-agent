@@ -1,4 +1,4 @@
-# Placeholder for stdio client integration
+# === Placeholder for stdio client integration ===
 
 
 def stdio_client(*args, **kwargs):
@@ -20,3 +20,15 @@ def connect_stdio(*args, **kwargs):
 
 def get_default_environment(*args, **kwargs):
     raise NotImplementedError("Stub: get_default_environment")
+
+
+# === Placeholder for streamable HTTP client integration ===
+
+
+def streamablehttp_client(*args, **kwargs):
+    raise NotImplementedError("Stub: streamablehttp_client")
+
+
+class GetSessionIdCallback:
+    def __init__(self, *args, **kwargs):
+        raise NotImplementedError("Stub: GetSessionIdCallback")
