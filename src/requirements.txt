@@ -4,3 +4,6 @@ anthropic==0.52.2
 pydantic==2.10.4
 uvicorn==0.34.3
 -e ./src
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-exporter-otlp
