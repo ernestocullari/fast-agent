@@ -1,12 +1,10 @@
 [build]
-builder = "nixpacks"
+builder = "dockerfile"
 
 [deploy]
-startCommand = "cd src && python -m uvicorn mcp_agent.railway_app:app --host 0.0.0.0 --port $PORT"
+startCommand = "python -m uvicorn src.mcp_agent.railway_app:app --host 0.0.0.0 --port $PORT"
 restartPolicyType = "always"
-restartPolicyMaxRetries = 3
 
 [variables]
-PYTHONPATH = "src"
+PYTHONPATH = "/app"
 ENVIRONMENT = "production"
-MCP_PORT = "$PORT"
