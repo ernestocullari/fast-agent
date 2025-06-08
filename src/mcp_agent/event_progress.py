@@ -5,7 +5,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from mcp_agent.logging.events import Event
+from mcp_agent.logger.events import Event
 
 
 class ProgressAction(str, Enum):
