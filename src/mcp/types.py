@@ -70,3 +70,9 @@ class BlobResourceContents(BaseModel):
     id: str
     data: Union[str, bytes]
     content_type: Optional[str] = None
+
+
+class TextResourceContents(BaseModel):
+    id: str
+    text: str
+    content_type: Optional[str] = None
