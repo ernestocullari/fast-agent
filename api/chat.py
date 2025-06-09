@@ -1,4 +1,4 @@
-# api/chat.py - MCP Server with Google Sheets Selection Helper
+# api/chat.py - MCP Server with n8n Workflow Integration
 
 from http.server import BaseHTTPRequestHandler
 import json
@@ -19,10 +19,11 @@ class handler(BaseHTTPRequestHandler):
 
         response = {
             "success": True,
-            "message": "MCP Geotargeting Server with Google Sheets Selection Helper is running!",
-            "endpoints": {"chat": "POST /api/chat", "status": "GET /api/chat"},
+            "message": "🚀 MCP Geotargeting Server with n8n Integration is running!",
+            "endpoints": {"chat": "POST /chat", "status": "GET /"},
             "features": [
-                "Google Sheets integration",
+                "n8n workflow integration",
+                "Google Sheets targeting data",
                 "Category selection assistance",
                 "Demographic targeting help",
                 "Context-aware recommendations",
@@ -72,33 +73,36 @@ class handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps(response).encode())
                 return
 
-            # Get Google Sheets data
-            sheets_data = self.get_google_sheets_data()
+            # Try n8n workflow first, then fallback to direct processing
+            n8n_response = self.call_n8n_workflow(message, context, location, campaign_type)
 
-            # Analyze user message and suggest selections
-            suggested_selections = self.analyze_message_and_suggest(message, sheets_data)
+            if n8n_response.get("success"):
+                # Use n8n workflow response
+                response = n8n_response
+            else:
+                # Fallback to direct Google Sheets processing
+                sheets_data = self.get_google_sheets_data()
+                suggested_selections = self.analyze_message_and_suggest(message, sheets_data)
+                recommendations = self.generate_contextual_recommendations(
+                    message, location, campaign_type, suggested_selections
+                )
 
-            # Generate recommendations based on selections
-            recommendations = self.generate_contextual_recommendations(
-                message, location, campaign_type, suggested_selections
-            )
-
-            # Success response
-            response = {
-                "success": True,
-                "message": f"Processed: {message}",
-                "context": context,
-                "location": location,
-                "campaign_type": campaign_type,
-                "suggested_selections": suggested_selections,
-                "recommendations": recommendations,
-                "available_options": self.get_available_options(sheets_data),
-                "timestamp": datetime.now().isoformat(),
-                "session_id": context.get(
-                    "session_id", f"session_{int(datetime.now().timestamp())}"
-                ),
-                "method": "POST",
-            }
+                response = {
+                    "success": True,
+                    "message": f"Processed: {message}",
+                    "context": context,
+                    "location": location,
+                    "campaign_type": campaign_type,
+                    "suggested_selections": suggested_selections,
+                    "recommendations": recommendations,
+                    "available_options": self.get_available_options(sheets_data),
+                    "timestamp": datetime.now().isoformat(),
+                    "session_id": context.get(
+                        "session_id", f"session_{int(datetime.now().timestamp())}"
+                    ),
+                    "method": "POST",
+                    "source": "fallback_processing",
+                }
 
             self.wfile.write(json.dumps(response).encode())
 
@@ -110,8 +114,78 @@ class handler(BaseHTTPRequestHandler):
             }
             self.wfile.write(json.dumps(response).encode())
 
+    def call_n8n_workflow(self, message, context=None, location=None, campaign_type="standard"):
+        """Call the n8n MCP Server workflow"""
+        try:
+            # Get n8n webhook URL from environment variable
+            n8n_webhook_url = os.environ.get("N8N_WEBHOOK_URL")
+
+            if not n8n_webhook_url:
+                # Default to a placeholder - you'll need to set this
+                n8n_webhook_url = (
+                    "https://YOUR-N8N-INSTANCE.app.n8n.cloud/webhook/YOUR-WEBHOOK-PATH"
+                )
+
+                return {
+                    "success": False,
+                    "error": "N8N_WEBHOOK_URL environment variable not set",
+                    "note": "Falling back to direct processing",
+                }
+
+            payload = {
+                "message": message,
+                "context": context or {},
+                "location": location,
+                "campaign_type": campaign_type,
+                "timestamp": datetime.now().isoformat(),
+                "source": "vercel_mcp_server",
+            }
+
+            print(f"Calling n8n workflow: {n8n_webhook_url}")
+            response = requests.post(n8n_webhook_url, json=payload, timeout=30)
+
+            if response.status_code == 200:
+                n8n_data = response.json()
+                return {
+                    "success": True,
+                    "message": f"n8n processed: {message}",
+                    "context": context,
+                    "location": location,
+                    "campaign_type": campaign_type,
+                    "suggested_selections": n8n_data.get("suggested_selections", {}),
+                    "recommendations": n8n_data.get("recommendations", []),
+                    "available_options": n8n_data.get("available_options", {}),
+                    "timestamp": datetime.now().isoformat(),
+                    "session_id": context.get(
+                        "session_id", f"session_{int(datetime.now().timestamp())}"
+                    )
+                    if context
+                    else f"session_{int(datetime.now().timestamp())}",
+                    "method": "POST",
+                    "source": "n8n_workflow",
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"n8n workflow returned status {response.status_code}",
+                    "response_text": response.text[:200] if response.text else "No response text",
+                }
+
+        except requests.exceptions.Timeout:
+            return {
+                "success": False,
+                "error": "n8n workflow timeout (30s)",
+                "note": "Workflow may be running but took too long to respond",
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"n8n call failed: {str(e)}",
+                "note": "Falling back to direct processing",
+            }
+
     def get_google_sheets_data(self):
-        """Fetch data from Google Sheets"""
+        """Fetch data from Google Sheets (fallback method)"""
         try:
             sheets_url = os.environ.get("GOOGLE_SHEETS_URL")
 
@@ -189,7 +263,7 @@ class handler(BaseHTTPRequestHandler):
         ]
 
     def analyze_message_and_suggest(self, message, sheets_data):
-        """Analyze user message and suggest appropriate selections"""
+        """Analyze user message and suggest appropriate selections (fallback method)"""
         message_lower = message.lower()
 
         data = sheets_data.get("data", self.get_sample_data())
@@ -246,7 +320,7 @@ class handler(BaseHTTPRequestHandler):
         return suggestions
 
     def get_available_options(self, sheets_data):
-        """Get all available options from the Google Sheet"""
+        """Get all available options from the Google Sheet (fallback method)"""
         data = sheets_data.get("data", self.get_sample_data())
 
         options = {
@@ -265,7 +339,7 @@ class handler(BaseHTTPRequestHandler):
         return options
 
     def generate_contextual_recommendations(self, message, location, campaign_type, selections):
-        """Generate recommendations based on selections"""
+        """Generate recommendations based on selections (fallback method)"""
 
         base_recommendations = [
             "Create 500m radius geofence around target location",
@@ -277,19 +351,19 @@ class handler(BaseHTTPRequestHandler):
         contextual_recommendations = []
 
         # Add recommendations based on selections
-        if selections["categories"]:
+        if selections.get("categories"):
             for category in selections["categories"][:2]:
                 contextual_recommendations.append(
                     f"Optimize campaigns for {category} sector patterns"
                 )
 
-        if selections["demographics"]:
+        if selections.get("demographics"):
             for demographic in selections["demographics"][:2]:
                 contextual_recommendations.append(
                     f"Target {demographic} with personalized messaging"
                 )
 
-        if selections["groupings"]:
+        if selections.get("groupings"):
             for grouping in selections["groupings"][:1]:
                 contextual_recommendations.append(
                     f"Focus on {grouping} specific timing and locations"
