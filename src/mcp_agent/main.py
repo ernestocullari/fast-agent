@@ -76,15 +76,14 @@ async def geofencing_trigger(trigger: GeofencingTrigger):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/ai/chat")
-async def ai_chat(request: AIRequest):
+@app.post("/chat")
+async def chat(request: AIRequest):
     try:
         return {
-            "response": f"AI response to: {request.message}",
-            "provider": request.provider,
-            "timestamp": datetime.utcnow().isoformat(),
-            "context": request.context
-        }
+    "response": f"Hello! I'm Artemis, your geofencing ad  expert assistant. You asked: {request.message}",
+    "session_id": request.context.get("session_id", "default"),
+    "status": "success"
+}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -103,6 +102,7 @@ async def n8n_webhook_info():
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    print(f"🚀 Starting AI Geofencing System on port {port}")
+    port = int(os.environ.get("PORT", 8080))
+    print(f"🚀 Starting on port {port}")
+    print(f"PORT env var: {os.environ.get('PORT', 'NOT SET')}")
     uvicorn.run(app, host="0.0.0.0", port=port)
