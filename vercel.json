@@ -1,7 +1,109 @@
-{
-  "functions": {
-    "api/*.py": {
-      "runtime": "python3.11"
-    }
-  }
-}
+# api/chat.py - Simple Vercel-compatible Python API
+# Copy this ENTIRE file
+
+from http.server import BaseHTTPRequestHandler
+import json
+from datetime import datetime
+from urllib.parse import urlparse, parse_qs
+
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        # Set CORS headers
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.end_headers()
+        
+        # Response for GET requests
+        response = {
+            'success': True,
+            'message': 'MCP Geotargeting Server is running!',
+            'endpoints': {
+                'chat': 'POST /api/chat',
+                'status': 'GET /api/chat'
+            },
+            'timestamp': datetime.now().isoformat(),
+            'method': 'GET'
+        }
+        
+        self.wfile.write(json.dumps(response).encode())
+        return
+
+    def do_POST(self):
+        # Set CORS headers
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.end_headers()
+        
+        try:
+            # Get POST data
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            
+            # Parse JSON
+            try:
+                data = json.loads(post_data.decode('utf-8')) if post_data else {}
+            except:
+                data = {}
+            
+            message = data.get('message', '')
+            context = data.get('context', {})
+            location = data.get('location', None)
+            campaign_type = data.get('campaign_type', 'standard')
+            
+            # Basic validation
+            if not message:
+                response = {
+                    'error': 'Message is required',
+                    'example': {
+                        'message': 'Generate campaign for coffee shop',
+                        'context': {'session_id': 'test_001'},
+                        'location': {'lat': 40.7128, 'lng': -74.0060, 'city': 'New York'},
+                        'campaign_type': 'geofence'
+                    }
+                }
+                self.wfile.write(json.dumps(response).encode())
+                return
+            
+            # Success response
+            response = {
+                'success': True,
+                'message': f'Processed: {message}',
+                'context': context,
+                'location': location,
+                'campaign_type': campaign_type,
+                'recommendations': [
+                    'Create 500m radius geofence around target location',
+                    'Use weather-triggered messaging',
+                    'Implement time-of-day optimization',
+                    'Set up competitor proximity alerts'
+                ],
+                'timestamp': datetime.now().isoformat(),
+                'session_id': context.get('session_id', f'session_{int(datetime.now().timestamp())}'),
+                'method': 'POST'
+            }
+            
+            self.wfile.write(json.dumps(response).encode())
+            
+        except Exception as e:
+            response = {
+                'error': 'Internal server error',
+                'details': str(e),
+                'timestamp': datetime.now().isoformat()
+            }
+            self.wfile.write(json.dumps(response).encode())
+
+    def do_OPTIONS(self):
+        # Handle preflight requests
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.end_headers()
+        return
+        

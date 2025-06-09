@@ -1,44 +1,53 @@
-# chat.py - Complete Python MCP Server for Geotargeting
+# api/chat.py - Simple Vercel-compatible Python API
 # Copy this ENTIRE file
 
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from http.server import BaseHTTPRequestHandler
 import json
 from datetime import datetime
-import os
-
-app = Flask(__name__)
-CORS(app)  # This fixes the authentication/CORS issues
+from urllib.parse import urlparse, parse_qs
 
 
-@app.route("/api/chat", methods=["GET", "POST", "OPTIONS"])
-def chat_handler():
-    # Handle preflight requests (fixes browser authentication issues)
-    if request.method == "OPTIONS":
-        response = jsonify({})
-        response.headers.add("Access-Control-Allow-Origin", "*")
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
-        response.headers.add("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-        return response
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        # Set CORS headers
+        self.send_response(200)
+        self.send_header("Content-type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.end_headers()
 
-    try:
-        # Handle GET requests (for testing)
-        if request.method == "GET":
-            response_data = {
-                "success": True,
-                "message": "MCP Geotargeting Server is running!",
-                "endpoints": {"chat": "POST /api/chat", "status": "GET /api/chat"},
-                "timestamp": datetime.now().isoformat(),
-            }
+        # Response for GET requests
+        response = {
+            "success": True,
+            "message": "MCP Geotargeting Server is running!",
+            "endpoints": {"chat": "POST /api/chat", "status": "GET /api/chat"},
+            "timestamp": datetime.now().isoformat(),
+            "method": "GET",
+        }
 
-            response = jsonify(response_data)
-            response.headers.add("Access-Control-Allow-Origin", "*")
-            return response
+        self.wfile.write(json.dumps(response).encode())
+        return
 
-        # Handle POST requests (main functionality)
-        if request.method == "POST":
-            # Get JSON data from request
-            data = request.get_json() if request.get_json() else {}
+    def do_POST(self):
+        # Set CORS headers
+        self.send_response(200)
+        self.send_header("Content-type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.end_headers()
+
+        try:
+            # Get POST data
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+
+            # Parse JSON
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+            except:
+                data = {}
 
             message = data.get("message", "")
             context = data.get("context", {})
@@ -47,7 +56,7 @@ def chat_handler():
 
             # Basic validation
             if not message:
-                error_response = {
+                response = {
                     "error": "Message is required",
                     "example": {
                         "message": "Generate campaign for coffee shop",
@@ -56,13 +65,11 @@ def chat_handler():
                         "campaign_type": "geofence",
                     },
                 }
-                response = jsonify(error_response)
-                response.status_code = 400
-                response.headers.add("Access-Control-Allow-Origin", "*")
-                return response
+                self.wfile.write(json.dumps(response).encode())
+                return
 
-            # Process the geotargeting request
-            response_data = {
+            # Success response
+            response = {
                 "success": True,
                 "message": f"Processed: {message}",
                 "context": context,
@@ -78,37 +85,24 @@ def chat_handler():
                 "session_id": context.get(
                     "session_id", f"session_{int(datetime.now().timestamp())}"
                 ),
+                "method": "POST",
             }
 
-            response = jsonify(response_data)
-            response.headers.add("Access-Control-Allow-Origin", "*")
-            return response
+            self.wfile.write(json.dumps(response).encode())
 
-    except Exception as e:
-        error_response = {
-            "error": "Internal server error",
-            "details": str(e),
-            "timestamp": datetime.now().isoformat(),
-        }
-        response = jsonify(error_response)
-        response.status_code = 500
-        response.headers.add("Access-Control-Allow-Origin", "*")
-        return response
+        except Exception as e:
+            response = {
+                "error": "Internal server error",
+                "details": str(e),
+                "timestamp": datetime.now().isoformat(),
+            }
+            self.wfile.write(json.dumps(response).encode())
 
-
-# Default route
-@app.route("/")
-def home():
-    response_data = {
-        "message": "MCP Geotargeting Server",
-        "status": "running",
-        "api_endpoint": "/api/chat",
-    }
-    response = jsonify(response_data)
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    return response
-
-
-# For Vercel deployment
-def handler(request):
-    return app(request.environ, lambda *args: None)
+    def do_OPTIONS(self):
+        # Handle preflight requests
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.end_headers()
+        return
