@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "public": true,
   "builds": [
     {
       "src": "api/chat.py",
@@ -10,17 +9,7 @@
   "routes": [
     {
       "src": "/api/chat",
-      "dest": "/api/chat.py",
-      "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "*"
-      }
+      "dest": "/api/chat.py"
     }
-  ],
-  "functions": {
-    "api/chat.py": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }
