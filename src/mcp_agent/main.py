@@ -1,109 +1,127 @@
-print("RAILWAY DEBUG: Starting main.py execution")
 import os
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Dict, Any, Optional
-from datetime import datetime
+import sys
 
-class GeofencingTrigger(BaseModel):
-    user_id: str
-    location: Dict[str, float]
-    geofence_id: str
-    trigger_type: str
-    timestamp: Optional[str] = None
-    user_data: Optional[Dict[str, Any]] = {}
+# Ensure the 'src' directory is in the Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_path = os.path.join(current_dir, "src")
+if src_path not in sys.path:
+    sys.path.append(src_path)
 
-class AIRequest(BaseModel):
-    message: str
-    context: Optional[Dict[str, Any]] = {}
-    provider: Optional[str] = "auto"
+from flask import Flask, request, jsonify
+from mcp_agent.core.fastagent import FastAgent
+from mcp_agent.tools.google_sheets_tool import google_sheets_tool
+import asyncio
 
-app = FastAPI(
-    title="MCP AI Geofencing System",
-    description="AI-powered geofencing marketing automation",
-    version="1.0.0"
-)
+app = Flask(__name__)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Initialize FastAgent once at startup with Google Sheets tool
+agent = None
 
-@app.get("/")
-async def root():
-    return {
-        "message": "🚀 AI Geofencing Marketing System LIVE!",
-        "status": "running",
-        "capabilities": [
-            "Multi-provider AI (OpenAI, Anthropic, Google)",
-            "Geofencing automation",
-            "n8n workflow integration",
-            "Railway cloud deployment"
-        ]
-    }
 
-@app.get("/health")
-async def health_check():
-    return {
-        "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
-        "system": "operational"
-    }
+def initialize_agent():
+    """Initialize the FastAgent with Google Sheets tool and optimized system prompt."""
+    global agent
 
-@app.post("/api/geofencing/trigger")
-async def geofencing_trigger(trigger: GeofencingTrigger):
-    try:
-        response = {
-            "trigger_id": f"geo_{trigger.user_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
-            "status": "processed",
-            "location_analysis": {
-                "user_id": trigger.user_id,
-                "location": trigger.location,
-                "geofence": trigger.geofence_id,
-                "action": trigger.trigger_type,
-                "timestamp": datetime.utcnow().isoformat()
-            },
-            "ai_recommendations": {
-                "campaign_type": "location_based_offer",
-                "urgency": "high" if trigger.trigger_type == "enter" else "medium",
-                "channels": ["mobile_push", "email", "dooh"]
+    # Create FastAgent with proper configuration
+    agent = FastAgent(
+        name="artemis",
+        parse_cli_args=False,  # Disable CLI parsing when running in Flask
+    )
+
+    # Define the Artemis agent with Google Sheets tool
+    @agent.agent(
+        name="artemis",
+        model="claude-3-5-sonnet-20241022",
+        system_prompt="""
+You are Artemis, a specialized geotargeting AI assistant helping users find exact ad targeting pathways.
+
+SEARCH STRATEGY (in priority order):
+1. Description column (most specific targeting pathways)
+2. Demographic column (demographic criteria)
+3. Grouping column (grouping categories)  
+4. Category column (broad categories)
+5. If no matches found, suggest trial/error or consultation
+
+CORE FUNCTION:
+- Match user's natural language audience descriptions to exact targeting pathways
+- Always present results as: Category → Grouping → Demographic
+- Use ONLY data from the Google Sheets database
+- Never suggest targeting options not found in the database
+
+RESPONSE REQUIREMENTS:
+1. Always use fetch_geotargeting_tool for every targeting query
+2. Present 1-3 complementary targeting pathways that work together
+3. Show clean pathways without technical details
+4. If weak matches, ask user for more detail
+5. If no matches after multiple attempts, suggest:
+   - Experimenting with the tool
+   - Scheduling a consult with ernesto@artemistargeting.com
+
+Keep responses focused on actionable Category → Grouping → Demographic pathways.
+        """,
+        tools=[
+            {
+                "name": "fetch_geotargeting_tool",
+                "description": "Search geotargeting demographics database with 4-level priority search",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "User's plain language description of their target audience",
+                        }
+                    },
+                    "required": ["query"],
+                },
+                "handler": lambda query: asyncio.run(google_sheets_tool.execute(query)),
             }
-        }
-        return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        ],
+    )
+    @agent.agent_main
+    async def artemis_main():
+        """Main agent function - this will be called by FastAgent"""
+        pass
 
-@app.post("/chat")
-async def chat(request: AIRequest):
+    return artemis_main
+
+
+# Initialize agent at startup
+artemis_main = initialize_agent()
+
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    """Handle chat requests with the optimized Artemis agent."""
     try:
-        return {
-    "response": f"Hello! I'm Artemis, your geofencing ad  expert assistant. You asked: {request.message}",
-    "session_id": request.context.get("session_id", "default"),
-    "status": "success"
-}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        user_input = request.json.get("message", "Hello")
+        session_id = request.json.get("session_id", "default")
 
-@app.get("/api/n8n/webhook-info")
-async def n8n_webhook_info():
-    base_url = os.environ.get("RAILWAY_STATIC_URL", "https://your-app.railway.app")
-    return {
-        "system": "AI Geofencing System",
-        "endpoints": {
-            "geofencing": f"{base_url}/api/geofencing/trigger",
-            "ai_chat": f"{base_url}/api/ai/chat",
-            "health": f"{base_url}/health"
-        },
-        "ready_for_deployment": True
-    }
+        # Run the agent with the user input
+        async def run_agent():
+            async with agent.run() as agent_app:
+                result = await agent_app.send(user_input, agent_name="artemis")
+                return result
+
+        # Execute the async function
+        result = asyncio.run(run_agent())
+
+        return jsonify({"response": result, "session_id": session_id, "status": "success"})
+
+    except Exception as e:
+        return jsonify(
+            {
+                "response": f"Error: {str(e)}",
+                "session_id": request.json.get("session_id", "default"),
+                "status": "error",
+            }
+        ), 500
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    """Health check endpoint."""
+    return jsonify({"status": "healthy", "agent": "artemis"})
+
 
 if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 8080))
-    print(f"🚀 Starting on port {port}")
-    print(f"PORT env var: {os.environ.get('PORT', 'NOT SET')}")
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
