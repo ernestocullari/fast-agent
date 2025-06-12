@@ -5,4 +5,5 @@ pydantic
 python-multipart
 flask
 flask-cors
-requests
+requestsgoogle-api-python-client==2.172.0
+google-auth==2.40.3
