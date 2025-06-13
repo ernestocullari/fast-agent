@@ -1,6 +1,16 @@
 from http.server import BaseHTTPRequestHandler
 import json
 import os
+import sys
+
+# Add src to path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+src_path = os.path.join(parent_dir, "src")
+if src_path not in sys.path:
+    sys.path.append(src_path)
+
+from tools.sheets_search import SheetsSearcher
 
 
 class handler(BaseHTTPRequestHandler):
@@ -11,9 +21,9 @@ class handler(BaseHTTPRequestHandler):
                 "success": True,
                 "status": "healthy",
                 "agent": "artemis",
-                "message": "🚀 Optimized MCP Geotargeting Server is running!",
-                "version": "minimal_working",
-                "timestamp": "2025-06-12",
+                "message": "🚀 Optimized MCP Geotargeting Server with Google Sheets is running!",
+                "version": "google_sheets_integrated",
+                "has_sheets_credentials": bool(os.getenv("GOOGLE_SHEET_ID")),
             }
 
             self.send_response(200)
@@ -26,7 +36,7 @@ class handler(BaseHTTPRequestHandler):
             self.send_error(500, f"Server error: {str(e)}")
 
     def do_POST(self):
-        """Handle POST requests - Chat functionality"""
+        """Handle POST requests - Chat with Google Sheets search"""
         try:
             # Get request body
             content_length = int(self.headers.get("Content-Length", 0))
@@ -41,14 +51,37 @@ class handler(BaseHTTPRequestHandler):
             message = body.get("message", "No message provided")
             session_id = body.get("session_id", "default")
 
-            # Simple test response
+            # Search Google Sheets for demographics
+            try:
+                searcher = SheetsSearcher()
+                search_result = searcher.search_demographics(message)
+
+                if search_result.get("success"):
+                    pathways = search_result.get("pathways", [])
+                    search_source = search_result.get("search_source", "Unknown")
+
+                    if pathways:
+                        pathway_text = "\n".join(
+                            [f"{i + 1}. **{pathway}**" for i, pathway in enumerate(pathways)]
+                        )
+                        response_message = f"Based on your audience description, here are the targeting pathways:\n\n{pathway_text}\n\nThese pathways work together to effectively reach your audience."
+                    else:
+                        response_message = "No specific targeting pathways found. Try describing your audience differently or contact ernesto@artemistargeting.com for consultation."
+                else:
+                    response_message = search_result.get(
+                        "message", "Error searching for targeting options."
+                    )
+
+            except Exception as e:
+                response_message = f"Error accessing demographics database: {str(e)}. Please contact ernesto@artemistargeting.com"
+
             response = {
                 "success": True,
-                "response": f"Artemis received: '{message}'. Google Sheets integration will be added next.",
+                "response": response_message,
                 "agent": "artemis",
                 "session_id": session_id,
-                "status": "minimal_working",
-                "received_message": message,
+                "status": "google_sheets_integrated",
+                "query": message,
             }
 
             self.send_response(200)
