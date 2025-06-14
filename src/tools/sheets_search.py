@@ -142,7 +142,7 @@ SEMANTIC_SCORE_MULTIPLIERS = {
 CATEGORY_BIAS_ADJUSTMENTS = {
     # Automotive penalty (reduce automotive dominance)
     "automotive_categories": ["Automotive", "Auto", "Car", "Vehicle", "Transportation"],
-    "automotive_penalty": 0.3,  # 70% reduction in automotive scores
+    "automotive_penalty": 0.01,  # 70% reduction in automotive scores
     # High priority categories (boost non-automotive)
     "high_priority_categories": [
         "Home & Garden",
@@ -166,10 +166,10 @@ CATEGORY_BIAS_ADJUSTMENTS = {
         "Beauty",
         "Lifestyle",
     ],
-    "high_priority_boost": 2.5,  # 150% boost for priority categories
+    "high_priority_boost": 10.0,  # 150% boost for priority categories
     # Medium priority categories
     "medium_priority_categories": ["Technology", "Finance", "Education", "Entertainment", "Sports"],
-    "medium_priority_boost": 1.8,  # 80% boost for medium categories
+    "medium_priority_boost": 5.0,  # 80% boost for medium categories
 }
 
 # Optimized search configuration with enhanced semantic weighting
