@@ -1,20 +1,27 @@
 import sys
 import os
-sys.path.append('./src')
+sys.path.append('src')
 
-from tools.sheets_search import expand_search_terms, SEMANTIC_MAPPINGS
+# Set up environment variables (you'll need to add your actual values)
+os.environ['GOOGLE_CLIENT_EMAIL'] = 'your-service-account@your-project.iam.gserviceaccount.com'
+os.environ['GOOGLE_PRIVATE_KEY'] = 'your-private-key-here'
+os.environ['GOOGLE_SHEET_ID'] = 'your-sheet-id-here'
 
-# Test the semantic expansion
-query = "home improvement customers"
-print(f"Original query: {query}")
-print(f"Expanded terms:")
+from tools.sheets_search import SheetsSearcher
 
-expanded = expand_search_terms(query)
-for i, term in enumerate(expanded):
-    print(f"  {i+1}. {term}")
+# Test the search
+searcher = SheetsSearcher()
+result = searcher.search_demographics("home improvement customers")
 
-print(f"\nSemantic mappings for 'home improvement':")
-print(SEMANTIC_MAPPINGS.get("home improvement", "NOT FOUND"))
+print("=== DEBUG RESULTS ===")
+print(f"Success: {result.get('success')}")
+print(f"Query: {result.get('query')}")
+print(f"Matches found: {result.get('matches_found', 'N/A')}")
 
-print(f"\nSemantic mappings for 'home':")
-print(SEMANTIC_MAPPINGS.get("home", "NOT FOUND"))
+if result.get('success'):
+    response = result.get('response', '')
+    print("\nResponse:")
+    print(response)
+else:
+    print(f"Error: {result.get('error')}")
+    print(f"Response: {result.get('response')}")
