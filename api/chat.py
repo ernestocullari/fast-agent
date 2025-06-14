@@ -48,7 +48,8 @@ class handler(BaseHTTPRequestHandler):
             except json.JSONDecodeError:
                 body = {}
 
-            message = body.get("message", "No message provided")
+            # FIXED: Accept both 'query' and 'message' parameters
+            message = body.get("query", body.get("message", "No message provided"))
             session_id = body.get("session_id", "default")
 
             # Search Google Sheets for demographics
@@ -57,19 +58,12 @@ class handler(BaseHTTPRequestHandler):
                 search_result = searcher.search_demographics(message)
 
                 if search_result.get("success"):
-                    pathways = search_result.get("pathways", [])
-                    search_source = search_result.get("search_source", "Unknown")
-
-                    if pathways:
-                        pathway_text = "\n".join(
-                            [f"{i + 1}. **{pathway}**" for i, pathway in enumerate(pathways)]
-                        )
-                        response_message = f"Based on your audience description, here are the targeting pathways:\n\n{pathway_text}\n\nThese pathways work together to effectively reach your audience."
-                    else:
-                        response_message = "No specific targeting pathways found. Try describing your audience differently or contact ernesto@artemistargeting.com for consultation."
+                    # Use the enhanced response format from the search result
+                    response_message = search_result.get("response", "No response generated")
                 else:
                     response_message = search_result.get(
-                        "message", "Error searching for targeting options."
+                        "response",
+                        search_result.get("message", "Error searching for targeting options."),
                     )
 
             except Exception as e:
