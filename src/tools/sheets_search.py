@@ -174,10 +174,10 @@ CATEGORY_BIAS_ADJUSTMENTS = {
 
 # Optimized search configuration with enhanced semantic weighting
 SEARCH_HIERARCHY = {
-    "Description": {"weight": 100, "priority": 1, "threshold": 0.4, "exact_match_bonus": 50},
-    "Demographic": {"weight": 75, "priority": 2, "threshold": 0.4, "exact_match_bonus": 25},
-    "Grouping": {"weight": 50, "priority": 3, "threshold": 0.4, "exact_match_bonus": 15},
-    "Category": {"weight": 25, "priority": 4, "threshold": 0.3, "exact_match_bonus": 10},
+    "Description": {"weight": 100, "priority": 1, "threshold": 0.2, "exact_match_bonus": 50},
+    "Demographic": {"weight": 75, "priority": 2, "threshold": 0.2, "exact_match_bonus": 25},
+    "Grouping": {"weight": 50, "priority": 3, "threshold": 0.2, "exact_match_bonus": 15},
+    "Category": {"weight": 25, "priority": 4, "threshold": 0.1, "exact_match_bonus": 10},
 }
 
 
@@ -574,7 +574,7 @@ def hierarchical_search(query, sheets_data):
         if row_matches:
             best_match = max(row_matches, key=lambda x: x["total_score"])
             # Adjusted threshold for more inclusive results
-            if best_match["total_score"] > 20:  # Slightly lower threshold
+            if best_match["total_score"] > 2:  # Slightly lower threshold
                 match_result = MatchResult(
                     row=row,
                     column_triggered=best_match["column"],
