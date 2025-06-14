@@ -289,24 +289,6 @@ def hierarchical_search(query, sheets_data):
     return all_matches[:3]
 
 
-def format_targeting_response(matches, original_query):
-    """Format matches into clean targeting pathways"""
-    if not matches:
-        return generate_no_match_response(original_query)
-
-    response_lines = []
-
-    for i, match in enumerate(matches, 1):
-        pathway = match.pathway
-        description = match.row.get("Description", "")
-        if description:
-            response_lines.append(f"{i}. **{pathway}** - {description}")
-        else:
-            response_lines.append(f"{i}. **{pathway}**")
-
-    return "\n".join(response_lines)
-
-
 def generate_no_match_response(query):
     """Generate helpful no-match responses with suggestions"""
     query_lower = query.lower()
@@ -450,7 +432,7 @@ class SheetsSearcher:
         return sheets_data
 
     def search_demographics(self, query):
-        """OPTIMIZED: Enhanced search with caching and performance monitoring"""
+        """OPTIMIZED: Enhanced search with proper response formatting for n8n"""
         start_time = time.time()
 
         try:
@@ -464,15 +446,20 @@ class SheetsSearcher:
             # Get sheets data (cached)
             sheets_data = self._get_sheets_data()
             if not sheets_data:
-                return {"success": False, "error": "No data found in sheet"}
+                return {
+                    "success": False,
+                    "error": "No data found in sheet",
+                    "response": "I'm unable to access the targeting database right now. Please try again or contact ernesto@artemistargeting.com for assistance.",
+                }
 
             # Perform hierarchical search with timeout protection
             matches = hierarchical_search(query, sheets_data)
 
-            # Process matches
+            # Process matches and format response
             if matches:
                 pathways = []
                 seen_pathways = set()
+                detailed_matches = []
 
                 for match in matches:
                     if all(
@@ -482,11 +469,25 @@ class SheetsSearcher:
                         if pathway not in seen_pathways:
                             pathways.append(pathway)
                             seen_pathways.add(pathway)
+                            detailed_matches.append(
+                                {
+                                    "pathway": pathway,
+                                    "description": match.row.get("Description", ""),
+                                    "score": match.total_score,
+                                    "category": match.row.get("Category", ""),
+                                    "grouping": match.row.get("Grouping", ""),
+                                    "demographic": match.row.get("Demographic", ""),
+                                }
+                            )
 
                 if pathways:
+                    # Format the response according to requirements
+                    formatted_response = self._format_targeting_response(detailed_matches, query)
+
                     result = {
                         "success": True,
-                        "pathways": pathways,
+                        "response": formatted_response,  # This is what n8n needs
+                        "pathways": pathways,  # Keep for backward compatibility
                         "search_source": "Google Sheets Database - Optimized Search",
                         "query": query,
                         "matches_found": len(pathways),
@@ -503,9 +504,11 @@ class SheetsSearcher:
                     return result
 
             # No matches found
+            no_match_response = generate_no_match_response(query)
             result = {
                 "success": False,
-                "message": generate_no_match_response(query),
+                "response": no_match_response,  # Formatted response for n8n
+                "message": no_match_response,  # Keep for backward compatibility
                 "query": query,
                 "search_attempted": True,
                 "database_searched": True,
@@ -517,9 +520,62 @@ class SheetsSearcher:
             return result
 
         except Exception as e:
+            error_response = f"I'm experiencing technical difficulties searching the database. Please try again or contact ernesto@artemistargeting.com for assistance."
             return {
                 "success": False,
                 "error": f"Database search error: {str(e)}",
+                "response": error_response,  # Formatted response for n8n
                 "query": query,
                 "response_time": round(time.time() - start_time, 2),
             }
+
+    def _format_targeting_response(self, detailed_matches, original_query):
+        """Format response according to specified requirements"""
+        if not detailed_matches:
+            return generate_no_match_response(original_query)
+
+        response_parts = []
+        response_parts.append(
+            "Based on your audience description, here are the targeting pathways:\n"
+        )
+
+        # Group into complementary combinations
+        if len(detailed_matches) == 1:
+            # Single match
+            match = detailed_matches[0]
+            response_parts.append(f"**Primary Targeting:**")
+            response_parts.append(f"• {match['pathway']}")
+            if match["description"]:
+                description = match["description"][:120]
+                response_parts.append(f"  _{description}..._")
+
+        elif len(detailed_matches) == 2:
+            # Two complementary matches
+            response_parts.append(f"**Targeting Combination:**")
+            for i, match in enumerate(detailed_matches, 1):
+                response_parts.append(f"• {match['pathway']}")
+
+            # Add description for the top match
+            if detailed_matches[0]["description"]:
+                description = detailed_matches[0]["description"][:100]
+                response_parts.append(f"\n_{description}..._")
+
+        else:
+            # Multiple matches - group into 2 combinations
+            response_parts.append(f"**Targeting Combination 1:**")
+            response_parts.append(f"• {detailed_matches[0]['pathway']}")
+            response_parts.append(f"• {detailed_matches[1]['pathway']}")
+
+            response_parts.append(f"\n**Alternative Targeting:**")
+            response_parts.append(f"• {detailed_matches[2]['pathway']}")
+
+            # Add brief explanation
+            if detailed_matches[0]["description"]:
+                description = detailed_matches[0]["description"][:100]
+                response_parts.append(f"\n_{description}..._")
+
+        response_parts.append(
+            f"\nThese pathways work together to effectively reach your target audience."
+        )
+
+        return "\n".join(response_parts)
