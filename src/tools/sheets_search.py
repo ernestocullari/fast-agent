@@ -254,8 +254,19 @@ def calculate_similarity(text1, text2):
         total = len(words1.union(words2))
         if total > 0:
             overlap_score = overlap / total
-            if overlap_score > 0.15:  # Reasonable threshold
-                return 0.3 + (overlap_score * 0.6)  # Good scoring
+
+            # BOOST: Extra scoring for exact word matches
+            exact_matches = 0
+            for word in words1:
+                if word in words2 and len(word) > 3:  # Count meaningful word matches
+                    exact_matches += 1
+
+            # Apply word match bonus
+            word_bonus = min(exact_matches * 0.25, 0.75)  # Up to 75% bonus for exact words
+            final_score = overlap_score + word_bonus
+
+            if final_score > 0.15:  # Lowered threshold
+                return min(final_score, 0.95)  # Cap at 0.95
 
     # Fuzzy matching
     similarity = difflib.SequenceMatcher(None, t1_lower, t2_lower).ratio()
@@ -292,7 +303,7 @@ def search_in_data(query, sheets_data):
                 weight = term_data["weight"]
 
                 similarity = calculate_similarity(term, column_text)
-                if similarity > 0.12:  # Optimized threshold - not too low, not too high
+                if similarity > 0.08:  # OPTIMIZED: Lowered from 0.12 to 0.08
                     score = similarity * weight * bias_multiplier * column_weight
                     if score > best_score:
                         best_score = score
@@ -305,9 +316,7 @@ def search_in_data(query, sheets_data):
                             "bias_multiplier": bias_multiplier,
                         }
 
-        if (
-            best_match and best_score > 0.8
-        ):  # Optimized threshold - finds good matches without noise
+        if best_match and best_score > 0.3:  # OPTIMIZED: Lowered from 0.8 to 0.3
             all_matches.append(best_match)
 
     # Sort by score and remove duplicates
