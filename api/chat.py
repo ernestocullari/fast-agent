@@ -12,8 +12,8 @@ class handler(BaseHTTPRequestHandler):
         # Health check endpoint
         result = {
             "status": "✅ LIVE",
-            "message": "Artemis Targeting MCP Server - Nuclear Automotive Prevention",
-            "version": "1.3.0",
+            "message": "Artemis Targeting MCP Server - Semantic Phrase Mapping",
+            "version": "1.4.0",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
@@ -42,8 +42,11 @@ class handler(BaseHTTPRequestHandler):
                 self._send_error("Could not access targeting database", 500)
                 return
 
+            # Apply semantic phrase mapping
+            processed_message = self._apply_semantic_mapping(user_message.lower())
+
             # Find matching targeting options
-            matches = self._find_targeting_matches(user_message.lower(), targeting_data)
+            matches = self._find_targeting_matches(processed_message, targeting_data)
 
             if matches:
                 response = self._format_targeting_response(matches, user_message)
@@ -58,6 +61,57 @@ class handler(BaseHTTPRequestHandler):
 
         except Exception as e:
             self._send_error(f"Server error: {str(e)}", 500)
+
+    def _apply_semantic_mapping(self, user_message):
+        """Convert natural language phrases to targeting database terminology"""
+
+        # Semantic phrase mappings
+        mappings = [
+            # Market/Shopping intent patterns
+            (r"people in the market for (.+)", r"\1 shoppers"),
+            (r"in the market for (.+)", r"\1 shoppers"),
+            (r"looking to buy (.+)", r"\1 shoppers"),
+            (r"buyers of (.+)", r"\1 shoppers"),
+            (r"purchasing (.+)", r"\1 shoppers"),
+            (r"shopping for (.+)", r"\1 shoppers"),
+            # Interest/Enthusiasm patterns
+            (r"people interested in (.+)", r"\1 enthusiasts"),
+            (r"interested in (.+)", r"\1 enthusiasts"),
+            (r"fans of (.+)", r"\1 enthusiasts"),
+            (r"people who love (.+)", r"\1 enthusiasts"),
+            (r"people passionate about (.+)", r"\1 enthusiasts"),
+            # Demographic patterns
+            (r"people who (.+)", r"\1"),
+            (r"individuals who (.+)", r"\1"),
+            (r"consumers who (.+)", r"\1"),
+            (r"households that (.+)", r"\1"),
+            # Activity patterns
+            (r"people who do (.+)", r"\1"),
+            (r"people who practice (.+)", r"\1"),
+            (r"people who participate in (.+)", r"\1"),
+            # Possession patterns
+            (r"people who own (.+)", r"\1 owners"),
+            (r"owners of (.+)", r"\1 owners"),
+            (r"people who have (.+)", r"\1 owners"),
+            # Specific common mappings
+            (r"hardwood floors?", "hardwood floor shoppers"),
+            (r"fitness", "fitness enthusiasts"),
+            (r"electronics", "electronics shoppers"),
+            (r"cars?|automobiles?", "auto shoppers"),
+            (r"homes?|houses?", "home shoppers"),
+            (r"furniture", "furniture shoppers"),
+        ]
+
+        processed = user_message
+
+        # Apply each mapping
+        for pattern, replacement in mappings:
+            processed = re.sub(pattern, replacement, processed, flags=re.IGNORECASE)
+
+        # Clean up extra spaces
+        processed = re.sub(r"\s+", " ", processed).strip()
+
+        return processed
 
     def _get_targeting_data(self):
         try:
@@ -175,16 +229,8 @@ class handler(BaseHTTPRequestHandler):
             "motorcycle",
             "motorcycles",
             "harley",
-            "honda",
             "yamaha",
             "kawasaki",
-            "parts",
-            "maintenance",
-            "repair",
-            "service",
-            "oil change",
-            "tire",
-            "tires",
         ]
 
         # Check if user explicitly requested automotive content
@@ -199,21 +245,6 @@ class handler(BaseHTTPRequestHandler):
         # More aggressive automotive detection
         for keyword in automotive_keywords:
             if keyword in all_text:
-                return True
-
-        # Check for common automotive patterns
-        automotive_patterns = [
-            r"\bauto\b",
-            r"\bcar\b",
-            r"\bvehicle\b",
-            r"\bmotorcycle\b",
-            r"\bdealer\b",
-            r"\bparts\b.*\b(store|shop)",
-            r"\b(honda|toyota|ford|bmw|mercedes)\b",
-        ]
-
-        for pattern in automotive_patterns:
-            if re.search(pattern, all_text):
                 return True
 
         return False
