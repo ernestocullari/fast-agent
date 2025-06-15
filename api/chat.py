@@ -60,11 +60,30 @@ class handler(BaseHTTPRequestHandler):
 
     def _get_targeting_data(self):
         try:
-            # Create credentials
-            private_key = os.getenv("GOOGLE_PRIVATE_KEY").replace("\\n", "\n")
+            # Get environment variables with validation
+            private_key = os.getenv("GOOGLE_PRIVATE_KEY")
             client_email = os.getenv("GOOGLE_CLIENT_EMAIL")
             sheet_id = os.getenv("GOOGLE_SHEET_ID")
 
+            # Debug: Check if all variables exist
+            if not private_key:
+                print("ERROR: GOOGLE_PRIVATE_KEY not found")
+                return None
+            if not client_email:
+                print("ERROR: GOOGLE_CLIENT_EMAIL not found")
+                return None
+            if not sheet_id:
+                print("ERROR: GOOGLE_SHEET_ID not found")
+                return None
+
+            print(f"DEBUG: private_key length: {len(private_key)}")
+            print(f"DEBUG: client_email: {client_email}")
+            print(f"DEBUG: sheet_id: {sheet_id[:10]}...")
+
+            # Process private key
+            private_key = private_key.replace("\\n", "\n")
+
+            # Create credentials info
             creds_info = {
                 "type": "service_account",
                 "project_id": "quick-website-dev",
@@ -76,26 +95,74 @@ class handler(BaseHTTPRequestHandler):
                 "token_uri": "https://oauth2.googleapis.com/token",
             }
 
+            print("DEBUG: Creating credentials...")
+
+            # Create credentials
             credentials = Credentials.from_service_account_info(
                 creds_info, scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
             )
 
+            print("DEBUG: Building service...")
+
+            # Build service
             service = build("sheets", "v4", credentials=credentials)
 
-            # Get all targeting data
-            range_name = "Sheet1!A:D"  # Category, Grouping, Demographic, Description
-            result = (
-                service.spreadsheets()
-                .values()
-                .get(spreadsheetId=sheet_id, range=range_name)
-                .execute()
-            )
+            print("DEBUG: Making API call...")
+
+            # Get all targeting data - try different ranges
+            try:
+                # First try the standard range
+                range_name = "Sheet1!A:D"
+                result = (
+                    service.spreadsheets()
+                    .values()
+                    .get(spreadsheetId=sheet_id, range=range_name)
+                    .execute()
+                )
+                print(f"DEBUG: Successfully got data from {range_name}")
+            except Exception as range_error:
+                print(f"DEBUG: Sheet1!A:D failed: {str(range_error)}")
+                # Try alternative range
+                try:
+                    range_name = "A:D"
+                    result = (
+                        service.spreadsheets()
+                        .values()
+                        .get(spreadsheetId=sheet_id, range=range_name)
+                        .execute()
+                    )
+                    print(f"DEBUG: Successfully got data from {range_name}")
+                except Exception as range_error2:
+                    print(f"DEBUG: A:D also failed: {str(range_error2)}")
+                    # Try getting just first few rows to test
+                    range_name = "A1:D100"
+                    result = (
+                        service.spreadsheets()
+                        .values()
+                        .get(spreadsheetId=sheet_id, range=range_name)
+                        .execute()
+                    )
+                    print(f"DEBUG: Successfully got data from {range_name}")
 
             values = result.get("values", [])
+            print(f"DEBUG: Retrieved {len(values)} rows")
 
-            # Convert to structured data (skip header row)
+            if values:
+                print(f"DEBUG: First row: {values[0]}")
+                if len(values) > 1:
+                    print(f"DEBUG: Second row: {values[1]}")
+
+            # Convert to structured data (skip header row if it exists)
             targeting_options = []
-            for row in values[1:]:  # Skip header
+            start_row = (
+                1
+                if values
+                and values[0]
+                and any(word in str(values[0][0]).lower() for word in ["category", "cat"])
+                else 0
+            )
+
+            for i, row in enumerate(values[start_row:]):
                 if len(row) >= 4:
                     targeting_options.append(
                         {
@@ -105,11 +172,16 @@ class handler(BaseHTTPRequestHandler):
                             "description": row[3].strip(),
                         }
                     )
+                elif len(row) >= 1:  # Log incomplete rows
+                    print(f"DEBUG: Incomplete row {i + start_row}: {row}")
+
+            print(f"DEBUG: Processed {len(targeting_options)} targeting options")
 
             return targeting_options
 
         except Exception as e:
-            print(f"Error getting targeting data: {str(e)}")
+            print(f"ERROR in _get_targeting_data: {str(e)}")
+            print(f"ERROR traceback: {traceback.format_exc()}")
             return None
 
     def _find_targeting_matches(self, user_message, targeting_data):
