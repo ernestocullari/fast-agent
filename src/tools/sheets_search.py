@@ -449,9 +449,17 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
     if len(matches) == 1:
         match = matches[0]
         row = match["row"]
-        pathway = (
-            f"{row.get('Category', '')} → {row.get('Grouping', '')} → {row.get('Demographic', '')}"
-        )
+
+        # Debug logging - remove after testing
+        print(f"DEBUG - Row data: {row}")
+
+        # Ensure correct format: Category → Grouping → Demographic
+        category = str(row.get("Category", "")).strip()
+        grouping = str(row.get("Grouping", "")).strip()
+        demographic = str(row.get("Demographic", "")).strip()
+
+        pathway = f"{category} → {grouping} → {demographic}"
+
         response_parts.append("🎯 **Primary Targeting:**")
         response_parts.append(f"• {pathway}")
 
@@ -464,7 +472,13 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
         response_parts.append("🎯 **Targeting Combination:**")
         for match in matches:
             row = match["row"]
-            pathway = f"{row.get('Category', '')} → {row.get('Grouping', '')} → {row.get('Demographic', '')}"
+
+            # Ensure correct format: Category → Grouping → Demographic
+            category = str(row.get("Category", "")).strip()
+            grouping = str(row.get("Grouping", "")).strip()
+            demographic = str(row.get("Demographic", "")).strip()
+
+            pathway = f"{category} → {grouping} → {demographic}"
             response_parts.append(f"• {pathway}")
 
         # Add description from best match
@@ -478,7 +492,13 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
         response_parts.append("🎯 **Targeting Combination:**")
         for i, match in enumerate(matches[:3]):
             row = match["row"]
-            pathway = f"{row.get('Category', '')} → {row.get('Grouping', '')} → {row.get('Demographic', '')}"
+
+            # Ensure correct format: Category → Grouping → Demographic
+            category = str(row.get("Category", "")).strip()
+            grouping = str(row.get("Grouping", "")).strip()
+            demographic = str(row.get("Demographic", "")).strip()
+
+            pathway = f"{category} → {grouping} → {demographic}"
             response_parts.append(f"• {pathway}")
 
         # Show additional options if available
