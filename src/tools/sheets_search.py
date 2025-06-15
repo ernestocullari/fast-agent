@@ -166,7 +166,7 @@ def calculate_bias_multiplier(row_data, query):
         else:
             return 0.01  # 99% penalty for automotive when not requested
     else:
-        return 8.0  # 800% boost for non-automotive content (increased)
+        return 10.0  # 1000% boost for non-automotive content (increased for debugging)
 
 
 def expand_search_terms(query):
@@ -178,7 +178,7 @@ def expand_search_terms(query):
     for key, synonyms in SEMANTIC_MAPPINGS.items():
         if key in query_lower:
             base_weight = (
-                0.2 if key in AUTOMOTIVE_TERMS else 1.8
+                0.2 if key in AUTOMOTIVE_TERMS else 2.0
             )  # Higher weight for non-automotive
             expanded_terms.append({"term": key, "weight": base_weight})
 
@@ -191,7 +191,7 @@ def expand_search_terms(query):
     for word in words:
         if len(word) > 2:
             weight = (
-                0.1 if word in AUTOMOTIVE_TERMS else 1.4
+                0.1 if word in AUTOMOTIVE_TERMS else 1.8
             )  # Higher weight for non-automotive words
             expanded_terms.append({"term": word, "weight": weight})
 
@@ -205,7 +205,7 @@ def expand_search_terms(query):
     final_terms = list(seen_terms.values())
     final_terms.sort(key=lambda x: x["weight"], reverse=True)
 
-    return final_terms[:10]  # Return top 10 terms
+    return final_terms[:15]  # Return top 15 terms for better coverage
 
 
 def calculate_similarity(text1, text2):
@@ -222,10 +222,10 @@ def calculate_similarity(text1, text2):
 
     # Contains match (both directions)
     if t1_lower in t2_lower:
-        return 0.85
+        return 0.9
 
     if t2_lower in t1_lower:
-        return 0.8
+        return 0.85
 
     # Word overlap scoring (enhanced)
     words1 = set(t1_lower.split())
@@ -236,22 +236,26 @@ def calculate_similarity(text1, text2):
         total = len(words1.union(words2))
         if total > 0:
             overlap_score = overlap / total
-            if overlap_score > 0.15:  # Lowered from 0.2
-                return 0.2 + (overlap_score * 0.5)  # Increased multiplier
+            if overlap_score > 0.1:  # Very low threshold
+                return 0.3 + (overlap_score * 0.6)  # Higher scoring
 
-    # Fuzzy matching
+    # Fuzzy matching with higher baseline
     similarity = difflib.SequenceMatcher(None, t1_lower, t2_lower).ratio()
     return similarity
 
 
 def search_in_data(query, sheets_data):
-    """Search through sheets data with bias correction"""
+    """Search through sheets data with bias correction and debug output"""
     expanded_terms = expand_search_terms(query)
     all_matches = []
 
-    max_rows = min(len(sheets_data), 800)  # Increased from 500
+    # Debug: Print some info about the search
+    print(f"DEBUG: Searching for '{query}' in {len(sheets_data)} rows")
+    print(f"DEBUG: Expanded terms: {[t['term'] for t in expanded_terms[:5]]}")
 
-    for row in sheets_data[:max_rows]:
+    max_rows = min(len(sheets_data), 1000)  # Increased for debugging
+
+    for i, row in enumerate(sheets_data[:max_rows]):
         best_score = 0
         best_match = None
 
@@ -274,7 +278,7 @@ def search_in_data(query, sheets_data):
                 weight = term_data["weight"]
 
                 similarity = calculate_similarity(term, column_text)
-                if similarity > 0.1:  # Lowered from 0.15 - VERY low threshold for better matching
+                if similarity > 0.01:  # ULTRA low threshold - should match almost anything
                     score = similarity * weight * bias_multiplier * column_weight
                     if score > best_score:
                         best_score = score
@@ -285,10 +289,18 @@ def search_in_data(query, sheets_data):
                             "similarity": similarity,
                             "term_used": term,
                             "bias_multiplier": bias_multiplier,
+                            "column_text": column_text[:50],  # For debugging
                         }
 
-        if best_match and best_score > 0.3:  # Lowered from 1 - even lower threshold
+        if best_match and best_score > 0.01:  # ULTRA low threshold - should match almost anything
             all_matches.append(best_match)
+            # Debug: Print first few matches
+            if len(all_matches) <= 3:
+                print(
+                    f"DEBUG: Match {len(all_matches)}: {best_match['term_used']} -> {best_match['column_text']} (score: {best_score:.3f})"
+                )
+
+    print(f"DEBUG: Found {len(all_matches)} total matches before filtering")
 
     # Sort by score and remove duplicates
     all_matches.sort(key=lambda x: x["score"], reverse=True)
@@ -296,7 +308,7 @@ def search_in_data(query, sheets_data):
     # Ensure diversity and limit automotive results
     final_matches = []
     automotive_count = 0
-    max_automotive = 3 if is_automotive_query(query) else 0  # Allow more if explicitly requested
+    max_automotive = 5 if is_automotive_query(query) else 1  # Allow more if explicitly requested
     seen_pathways = set()
     seen_categories = {}
 
@@ -320,21 +332,22 @@ def search_in_data(query, sheets_data):
 
         # Limit per category for diversity
         category_count = seen_categories.get(category, 0)
-        if category_count >= 2:  # Max 2 per category
+        if category_count >= 3:  # Max 3 per category (increased for debugging)
             continue
 
         final_matches.append(match)
         seen_pathways.add(pathway)
         seen_categories[category] = category_count + 1
 
-        if len(final_matches) >= 8:  # Increased from 6
+        if len(final_matches) >= 10:  # Increased for debugging
             break
 
+    print(f"DEBUG: Returning {len(final_matches)} final matches")
     return final_matches
 
 
 def format_response(matches, query):
-    """Format the response for n8n"""
+    """Format the response for n8n with debug info"""
     if not matches:
         # Enhanced no-match response with better suggestions
         query_lower = query.lower()
@@ -413,9 +426,14 @@ Try being more specific with terms like:
 • Include demographics (age, income, lifestyle) 
 • Mention specific interests and behaviors
 
+**DEBUG INFO**: Ultra-low thresholds are active for debugging. If you're still not seeing matches, there may be a data access issue.
+
 You can also explore our targeting tool or schedule a consultation with ernesto@artemistargeting.com for personalized assistance."""
 
     response_parts = ["Based on your audience description, here are the targeting pathways:\n"]
+
+    # Add debug info for successful matches
+    response_parts.append(f"**DEBUG**: Found {len(matches)} matches with ultra-low thresholds\n")
 
     if len(matches) == 1:
         match = matches[0]
@@ -425,6 +443,9 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
         )
         response_parts.append("🎯 **Primary Targeting:**")
         response_parts.append(f"• {pathway}")
+        response_parts.append(
+            f"  *Match score: {match['score']:.3f}, Term: '{match['term_used']}'*"
+        )
 
         description = row.get("Description", "")
         if description:
@@ -433,10 +454,11 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
 
     elif len(matches) == 2:
         response_parts.append("🎯 **Targeting Combination:**")
-        for match in matches:
+        for i, match in enumerate(matches):
             row = match["row"]
             pathway = f"{row.get('Category', '')} → {row.get('Grouping', '')} → {row.get('Demographic', '')}"
             response_parts.append(f"• {pathway}")
+            response_parts.append(f"  *Score: {match['score']:.3f}*")
 
         # Add description from best match
         best_match = matches[0]
@@ -446,16 +468,17 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
             response_parts.append(f"\n_{desc_text}..._")
 
     else:
-        response_parts.append("🎯 **Targeting Combination:**")
-        for i, match in enumerate(matches[:3]):
+        response_parts.append("🎯 **Targeting Options:**")
+        for i, match in enumerate(matches[:5]):  # Show top 5
             row = match["row"]
             pathway = f"{row.get('Category', '')} → {row.get('Grouping', '')} → {row.get('Demographic', '')}"
             response_parts.append(f"• {pathway}")
+            response_parts.append(f"  *Score: {match['score']:.3f}*")
 
         # Show additional options if available
-        if len(matches) > 3:
+        if len(matches) > 5:
             response_parts.append(
-                f"\n**Additional Options:** {len(matches) - 3} more targeting pathways available"
+                f"\n**Additional Options:** {len(matches) - 5} more targeting pathways found"
             )
 
         # Add description from best match
@@ -511,7 +534,7 @@ class SheetsSearcher:
             raise
 
     def _get_sheets_data(self):
-        """Get and cache sheets data"""
+        """Get and cache sheets data with debug output"""
         current_time = time.time()
 
         # Use cache if fresh (5 minutes)
@@ -520,10 +543,12 @@ class SheetsSearcher:
             and self.cache_timestamp
             and current_time - self.cache_timestamp < 300
         ):
+            print(f"DEBUG: Using cached data with {len(self.sheets_data_cache)} rows")
             return self.sheets_data_cache
 
         # Fetch fresh data
         try:
+            print(f"DEBUG: Fetching fresh data from sheet ID: {self.sheet_id}")
             sheet = self.service.spreadsheets()
             result = (
                 sheet.values()
@@ -536,20 +561,31 @@ class SheetsSearcher:
 
             values = result.get("values", [])
             if not values:
+                print("DEBUG: No values returned from Google Sheet")
                 return []
 
             headers = values[0]
             data_rows = values[1:]
+            print(f"DEBUG: Retrieved {len(data_rows)} data rows from sheet")
+            print(f"DEBUG: Headers: {headers}")
 
             # Find column indices
-            category_idx = headers.index("Category")
-            grouping_idx = headers.index("Grouping")
-            demographic_idx = headers.index("Demographic")
-            description_idx = headers.index("Description")
+            try:
+                category_idx = headers.index("Category")
+                grouping_idx = headers.index("Grouping")
+                demographic_idx = headers.index("Demographic")
+                description_idx = headers.index("Description")
+                print(
+                    f"DEBUG: Column indices found - Category: {category_idx}, Grouping: {grouping_idx}, Demographic: {demographic_idx}, Description: {description_idx}"
+                )
+            except ValueError as e:
+                print(f"DEBUG: Column not found: {e}")
+                print(f"DEBUG: Available headers: {headers}")
+                return []
 
             # Convert to dictionaries
             sheets_data = []
-            for row in data_rows:
+            for i, row in enumerate(data_rows):
                 if len(row) > max(category_idx, grouping_idx, demographic_idx, description_idx):
                     row_dict = {
                         "Category": str(row[category_idx]).strip()
@@ -576,6 +612,11 @@ class SheetsSearcher:
                         ]
                     ):
                         sheets_data.append(row_dict)
+                        # Print first few rows for debugging
+                        if i < 3:
+                            print(f"DEBUG: Row {i + 1}: {row_dict}")
+
+            print(f"DEBUG: Processed {len(sheets_data)} valid rows")
 
             # Cache results
             self.sheets_data_cache = sheets_data
@@ -584,24 +625,28 @@ class SheetsSearcher:
             return sheets_data
 
         except Exception as e:
-            print(f"Error fetching sheets data: {e}")
+            print(f"DEBUG: Error fetching sheets data: {e}")
             return []
 
     def search_demographics(self, query):
-        """Main search function with enhanced fallback logic"""
+        """Main search function with enhanced fallback logic and debug output"""
         start_time = time.time()
 
         try:
+            print(f"DEBUG: Starting search for query: '{query}'")
+
             # Check cache
             cache_key = query.lower().strip()
             if cache_key in SEARCH_CACHE:
                 cached_result = SEARCH_CACHE[cache_key].copy()
                 cached_result["cache_hit"] = True
+                print("DEBUG: Returning cached result")
                 return cached_result
 
             # Get sheets data
             sheets_data = self._get_sheets_data()
             if not sheets_data:
+                print("DEBUG: No sheets data available")
                 return {
                     "success": False,
                     "response": "I'm unable to access the targeting database right now. Please try again or contact ernesto@artemistargeting.com for assistance.",
@@ -613,6 +658,7 @@ class SheetsSearcher:
 
             # If no matches, try with individual key words
             if not matches:
+                print("DEBUG: No matches found, trying fallback search with individual words")
                 # Extract key words and try again
                 words = [
                     word
@@ -621,9 +667,11 @@ class SheetsSearcher:
                     and word not in ["the", "and", "for", "with", "like", "want", "need"]
                 ]
                 for word in words[:3]:  # Try top 3 words
+                    print(f"DEBUG: Trying fallback search with word: '{word}'")
                     fallback_matches = search_in_data(word, sheets_data)
                     if fallback_matches:
-                        matches = fallback_matches[:2]  # Limit fallback results
+                        matches = fallback_matches[:3]  # Limit fallback results
+                        print(f"DEBUG: Fallback search found {len(matches)} matches")
                         break
 
             # Format response
@@ -635,18 +683,21 @@ class SheetsSearcher:
                 "response": response_text,
                 "query": query,
                 "matches_found": len(matches),
-                "search_method": "enhanced_nuclear_bias_corrected",
+                "search_method": "ultra_debug_nuclear_bias_corrected",
                 "response_time": round(time.time() - start_time, 2),
                 "cache_hit": False,
+                "debug_info": {"sheet_rows": len(sheets_data), "ultra_low_thresholds": True},
             }
 
             # Cache successful results
             if success and len(SEARCH_CACHE) < CACHE_SIZE_LIMIT:
                 SEARCH_CACHE[cache_key] = result.copy()
 
+            print(f"DEBUG: Search completed. Success: {success}, Matches: {len(matches)}")
             return result
 
         except Exception as e:
+            print(f"DEBUG: Exception in search_demographics: {e}")
             return {
                 "success": False,
                 "response": "I'm experiencing technical difficulties searching the database. Please try again or contact ernesto@artemistargeting.com for assistance.",
