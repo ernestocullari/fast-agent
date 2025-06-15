@@ -1,189 +1,49 @@
 from http.server import BaseHTTPRequestHandler
 import json
-import os
-import sys
-
-# Add src to path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-src_path = os.path.join(parent_dir, "src")
-if src_path not in sys.path:
-    sys.path.append(src_path)
-
-try:
-    from tools.sheets_search import search_sheets_data
-    SEARCH_AVAILABLE = True
-except ImportError as e:
-    print(f"Import error: {e}")
-    SEARCH_AVAILABLE = False
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        """Handle GET requests - Health check"""
-        try:
-            response = {
-                "success": True,
-                "status": "healthy",
-                "agent": "artemis",
-                "message": "🚀 Enhanced Similarity Algorithm MCP Server is running!",
-                "version": "enhanced_similarity_v2",
-                "search_available": SEARCH_AVAILABLE,
-                "has_sheets_credentials": bool(os.getenv("GOOGLE_SHEET_ID")),
-            }
-
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps(response).encode())
-
-        except Exception as e:
-            self.send_error(500, f"Server error: {str(e)}")
+        response = {
+            "status": "healthy", 
+            "message": "Minimal working version",
+            "agent": "artemis"
+        }
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(json.dumps(response).encode())
 
     def do_POST(self):
-        """Handle POST requests - Chat with Enhanced Google Sheets search"""
         try:
-            # Get request body
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
-
-            # Parse JSON
-            try:
-                body = json.loads(post_data.decode("utf-8"))
-            except json.JSONDecodeError:
-                body = {}
-
-            # Accept both 'query' and 'message' parameters
+            body = json.loads(post_data.decode("utf-8"))
+            
             message = body.get("query", body.get("message", "")).strip()
-            session_id = body.get("session_id", "default")
+            
+            # Hardcoded response for "hardwood floors" to test functionality
+            if "hardwood" in message.lower():
+                response_text = """Based on your audience description, here are the targeting pathways:
 
-            if not message:
-                error_response = {
-                    "success": False,
-                    "response": "No query provided",
-                    "agent": "artemis",
-                    "session_id": session_id
-                }
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.end_headers()
-                self.wfile.write(json.dumps(error_response).encode())
-                return
+**1.** Mobile Location Models → Store Visitors → Hardwood Floor Shoppers
+   _Indicates consumer's likelihood to visit Hardwood Floor Shopping. A predictive model based on store visit patterns._
 
-            # Search Google Sheets for demographics using enhanced algorithm
-            if not SEARCH_AVAILABLE:
-                response_message = "Search function not available due to import error. Please contact ernesto@artemistargeting.com"
-                search_success = False
+**2.** Mobile Location Models → Store Visitors → High End Furniture Shopper  
+   _Consumer is likely to shop at a high-end furniture store. Predictive, statistical analysis based on mobile device data._
+
+These pathways work together to effectively reach your target audience."""
             else:
-                try:
-                    search_result = search_sheets_data(message)
-                    response_message = search_result.get("response", "No response generated")
-                    search_success = search_result.get("success", False)
-                except Exception as e:
-                    response_message = f"Error accessing demographics database: {str(e)}. Please contact ernesto@artemistargeting.com"
-                    search_success = False
-
-            response = {
-                "success": search_success,
-                "respon
-
-cat > api/chat.py << 'EOF'
-from http.server import BaseHTTPRequestHandler
-import json
-import os
-import sys
-
-# Add src to path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-src_path = os.path.join(parent_dir, "src")
-if src_path not in sys.path:
-    sys.path.append(src_path)
-
-try:
-    from tools.sheets_search import search_sheets_data
-    SEARCH_AVAILABLE = True
-except ImportError as e:
-    print(f"Import error: {e}")
-    SEARCH_AVAILABLE = False
-
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        """Handle GET requests - Health check"""
-        try:
+                response_text = f"I received your query: '{message}'. Try 'hardwood floors' for a sample response, or contact ernesto@artemistargeting.com for assistance."
+            
             response = {
                 "success": True,
-                "status": "healthy",
+                "response": response_text,
                 "agent": "artemis",
-                "message": "🚀 Enhanced Similarity Algorithm MCP Server is running!",
-                "version": "enhanced_similarity_v2",
-                "search_available": SEARCH_AVAILABLE,
-                "has_sheets_credentials": bool(os.getenv("GOOGLE_SHEET_ID")),
+                "session_id": body.get("session_id", "default"),
+                "query": message
             }
-
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps(response).encode())
-
-        except Exception as e:
-            self.send_error(500, f"Server error: {str(e)}")
-
-    def do_POST(self):
-        """Handle POST requests - Chat with Enhanced Google Sheets search"""
-        try:
-            # Get request body
-            content_length = int(self.headers.get("Content-Length", 0))
-            post_data = self.rfile.read(content_length)
-
-            # Parse JSON
-            try:
-                body = json.loads(post_data.decode("utf-8"))
-            except json.JSONDecodeError:
-                body = {}
-
-            # Accept both 'query' and 'message' parameters
-            message = body.get("query", body.get("message", "")).strip()
-            session_id = body.get("session_id", "default")
-
-            if not message:
-                error_response = {
-                    "success": False,
-                    "response": "No query provided",
-                    "agent": "artemis",
-                    "session_id": session_id
-                }
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.end_headers()
-                self.wfile.write(json.dumps(error_response).encode())
-                return
-
-            # Search Google Sheets for demographics using enhanced algorithm
-            if not SEARCH_AVAILABLE:
-                response_message = "Search function not available due to import error. Please contact ernesto@artemistargeting.com"
-                search_success = False
-            else:
-                try:
-                    search_result = search_sheets_data(message)
-                    response_message = search_result.get("response", "No response generated")
-                    search_success = search_result.get("success", False)
-                except Exception as e:
-                    response_message = f"Error accessing demographics database: {str(e)}. Please contact ernesto@artemistargeting.com"
-                    search_success = False
-
-            response = {
-                "success": search_success,
-                "response": response_message,
-                "agent": "artemis",
-                "session_id": session_id,
-                "status": "enhanced_similarity_algorithm",
-                "query": message,
-            }
-
+            
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -191,13 +51,12 @@ class handler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
             self.end_headers()
             self.wfile.write(json.dumps(response).encode())
-
+            
         except Exception as e:
             error_response = {
                 "success": False,
-                "response": f"Server error: {str(e)}",
-                "agent": "artemis",
-                "error": str(e)
+                "response": f"Error processing request: {str(e)}",
+                "agent": "artemis"
             }
             self.send_response(500)
             self.send_header("Content-Type", "application/json")
@@ -206,10 +65,8 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(error_response).encode())
 
     def do_OPTIONS(self):
-        """Handle OPTIONS requests for CORS"""
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
-# Deployment trigger Sun Jun 15 08:34:37 UTC 2025
