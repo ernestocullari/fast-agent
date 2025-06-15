@@ -373,7 +373,7 @@ def search_in_data(query, sheets_data):
     # Sort by score and remove duplicates
     all_matches.sort(key=lambda x: x["score"], reverse=True)
 
-    # Ensure diversity and ZERO automotive results unless requested
+    # HARDCODED REQUIREMENT: Ensure diversity and minimum 2 combinations
     final_matches = []
     seen_pathways = set()
     seen_categories = {}
@@ -382,7 +382,7 @@ def search_in_data(query, sheets_data):
         row = match["row"]
         category = row.get("Category", "")
 
-        # ENFORCE STRICT TAXONOMIC ORDER: Category → Grouping → Demographic
+        # HARDCODED: STRICT TAXONOMIC ORDER - Category → Grouping → Demographic
         pathway = f"{category} → {row.get('Grouping', '')} → {row.get('Demographic', '')}"
 
         if pathway in seen_pathways:
@@ -397,27 +397,30 @@ def search_in_data(query, sheets_data):
         ):
             continue
 
-        # Limit per category for diversity
+        # Limit per category for diversity (max 3 per category to ensure variety)
         category_count = seen_categories.get(category, 0)
-        if category_count >= 2:
+        if category_count >= 3:
             continue
 
         final_matches.append(match)
         seen_pathways.add(pathway)
         seen_categories[category] = category_count + 1
 
-        if len(final_matches) >= 6:
+        # HARDCODED: Stop at 8 matches to have good selection
+        if len(final_matches) >= 8:
             break
 
     return final_matches
 
 
-def format_response(matches, query):
-    """Format the response for n8n - STRICT Category → Grouping → Demographic format"""
+def format_response_hardcoded(matches, query, request_more=False):
+    """HARDCODED response formatting with strict requirements"""
+
     if not matches:
         query_lower = query.lower()
         suggestions = []
 
+        # Provide category-specific suggestions (no automotive unless requested)
         if any(
             word in query_lower
             for word in [
@@ -484,84 +487,83 @@ def format_response(matches, query):
 
         suggestion_text = ", ".join(suggestions[:3])
 
-        return f"""I couldn't find strong matches in our targeting database for '{query}'.
+        return {
+            "success": False,
+            "response": f"""I couldn't find strong matches in our targeting database for '{query}'.
 
 Try being more specific with terms like:
 • {suggestion_text}
 • Include demographics (age, income, lifestyle) 
 • Mention specific interests and behaviors
 
-You can also explore our targeting tool or schedule a consultation with ernesto@artemistargeting.com for personalized assistance."""
+You can also explore our targeting tool or schedule a consultation with ernesto@artemistargeting.com for personalized assistance.""",
+            "pathways": [],
+            "query": query,
+        }
 
-    response_parts = ["Based on your audience description, here are the targeting pathways:\n"]
+    # HARDCODED REQUIREMENT: Always provide minimum 2 combinations
+    if request_more and len(matches) > 2:
+        # If user requests more, provide next 2 combinations
+        selected_matches = matches[2:4] if len(matches) > 3 else matches[2:3]
+        if len(selected_matches) < 2 and len(matches) > 4:
+            selected_matches.extend(matches[4:6])
+    else:
+        # Always provide first 2 combinations minimum
+        selected_matches = matches[:2]
+        # If we have more than 2, add up to 4 total for initial response
+        if len(matches) > 2:
+            selected_matches.extend(matches[2:4])
 
-    if len(matches) == 1:
-        match = matches[0]
+    # HARDCODED: Ensure minimum 2 combinations
+    if len(selected_matches) < 2 and len(matches) >= 2:
+        selected_matches = matches[:2]
+
+    # HARDCODED: Build response with strict taxonomic format
+    pathways = []
+    for match in selected_matches:
         row = match["row"]
-
         # STRICT FORMAT: Category → Grouping → Demographic
         category = str(row.get("Category", "")).strip()
         grouping = str(row.get("Grouping", "")).strip()
         demographic = str(row.get("Demographic", "")).strip()
+        description = str(row.get("Description", "")).strip()
 
         pathway = f"{category} → {grouping} → {demographic}"
+        pathways.append(
+            {
+                "pathway": pathway,
+                "description": description[:150] + "..." if len(description) > 150 else description,
+            }
+        )
 
-        response_parts.append("🎯 **Primary Targeting:**")
-        response_parts.append(f"• {pathway}")
+    # HARDCODED: Format response text
+    response_parts = ["Based on your audience description, here are the targeting pathways:\n"]
 
-        description = row.get("Description", "")
-        if description:
-            desc_text = description[:120].strip()
-            response_parts.append(f"  _{desc_text}..._")
+    for i, pathway_data in enumerate(pathways, 1):
+        response_parts.append(f"**{i}.** {pathway_data['pathway']}")
+        if pathway_data["description"]:
+            response_parts.append(f"   _{pathway_data['description']}_\n")
 
-    elif len(matches) == 2:
-        response_parts.append("🎯 **Targeting Combination:**")
-        for match in matches:
-            row = match["row"]
-
-            # STRICT FORMAT: Category → Grouping → Demographic
-            category = str(row.get("Category", "")).strip()
-            grouping = str(row.get("Grouping", "")).strip()
-            demographic = str(row.get("Demographic", "")).strip()
-
-            pathway = f"{category} → {grouping} → {demographic}"
-            response_parts.append(f"• {pathway}")
-
-        best_match = matches[0]
-        description = best_match["row"].get("Description", "")
-        if description:
-            desc_text = description[:100].strip()
-            response_parts.append(f"\n_{desc_text}..._")
-
-    else:
-        response_parts.append("🎯 **Targeting Combination:**")
-        for i, match in enumerate(matches[:3]):
-            row = match["row"]
-
-            # STRICT FORMAT: Category → Grouping → Demographic
-            category = str(row.get("Category", "")).strip()
-            grouping = str(row.get("Grouping", "")).strip()
-            demographic = str(row.get("Demographic", "")).strip()
-
-            pathway = f"{category} → {grouping} → {demographic}"
-            response_parts.append(f"• {pathway}")
-
-        if len(matches) > 3:
-            response_parts.append(
-                f"\n**Alternative Options:** {len(matches) - 3} more targeting pathways available"
-            )
-
-        best_match = matches[0]
-        description = best_match["row"].get("Description", "")
-        if description:
-            desc_text = description[:100].strip()
-            response_parts.append(f"\n_{desc_text}..._")
+    # HARDCODED: Add "more options" info if available
+    remaining_matches = len(matches) - len(selected_matches)
+    if remaining_matches > 0:
+        response_parts.append(
+            f"**Additional Options Available:** {remaining_matches} more targeting combinations"
+        )
+        response_parts.append("Ask for 'more targeting options' to see additional pathways.")
 
     response_parts.append(
         "\nThese pathways work together to effectively reach your target audience."
     )
 
-    return "\n".join(response_parts)
+    return {
+        "success": True,
+        "response": "\n".join(response_parts),
+        "pathways": [p["pathway"] for p in pathways],
+        "total_available": len(matches),
+        "query": query,
+        "request_more": request_more,
+    }
 
 
 class SheetsSearcher:
@@ -668,13 +670,27 @@ class SheetsSearcher:
         except Exception as e:
             return []
 
-    def search_demographics(self, query):
-        """Main search function with NUCLEAR automotive prevention"""
+    def search_demographics(self, query, request_more=False):
+        """HARDCODED search function with strict requirements"""
         start_time = time.time()
 
         try:
-            cache_key = query.lower().strip()
-            if cache_key in SEARCH_CACHE:
+            # Check for "more" request indicator
+            if "more" in query.lower() and "option" in query.lower():
+                request_more = True
+                # Extract original query (remove "more options" type phrases)
+                original_query = (
+                    query.lower()
+                    .replace("more", "")
+                    .replace("option", "")
+                    .replace("additional", "")
+                    .strip()
+                )
+            else:
+                original_query = query
+
+            cache_key = original_query.lower().strip()
+            if cache_key in SEARCH_CACHE and not request_more:
                 cached_result = SEARCH_CACHE[cache_key].copy()
                 cached_result["cache_hit"] = True
                 return cached_result
@@ -687,12 +703,12 @@ class SheetsSearcher:
                     "error": "No data available",
                 }
 
-            matches = search_in_data(query, sheets_data)
+            matches = search_in_data(original_query, sheets_data)
 
             if not matches:
                 words = [
                     word
-                    for word in query.lower().split()
+                    for word in original_query.lower().split()
                     if len(word) > 3
                     and word
                     not in ["the", "and", "for", "with", "like", "want", "need", "that", "this"]
@@ -700,23 +716,26 @@ class SheetsSearcher:
                 for word in words[:3]:
                     fallback_matches = search_in_data(word, sheets_data)
                     if fallback_matches:
-                        matches = fallback_matches[:2]
+                        matches = fallback_matches
                         break
 
-            response_text = format_response(matches, query)
-            success = len(matches) > 0
+            # HARDCODED: Use hardcoded response formatter
+            formatted_response = format_response_hardcoded(matches, original_query, request_more)
 
             result = {
-                "success": success,
-                "response": response_text,
-                "query": query,
+                "success": formatted_response["success"],
+                "response": formatted_response["response"],
+                "pathways": formatted_response.get("pathways", []),
+                "query": original_query,
                 "matches_found": len(matches),
-                "search_method": "nuclear_automotive_prevention",
+                "total_available": formatted_response.get("total_available", 0),
+                "search_method": "hardcoded_requirements_nuclear_prevention",
                 "response_time": round(time.time() - start_time, 2),
                 "cache_hit": False,
             }
 
-            if success and len(SEARCH_CACHE) < CACHE_SIZE_LIMIT:
+            # Cache successful results
+            if result["success"] and len(SEARCH_CACHE) < CACHE_SIZE_LIMIT and not request_more:
                 SEARCH_CACHE[cache_key] = result.copy()
 
             return result
@@ -736,5 +755,5 @@ sheets_searcher = SheetsSearcher()
 
 
 def search_sheets_data(query):
-    """Main function called by MCP server"""
+    """Main function called by MCP server with HARDCODED requirements"""
     return sheets_searcher.search_demographics(query)
