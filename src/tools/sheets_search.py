@@ -757,3 +757,4 @@ sheets_searcher = SheetsSearcher()
 def search_sheets_data(query):
     """Main function called by MCP server with HARDCODED requirements"""
     return sheets_searcher.search_demographics(query)
+# Force deployment
