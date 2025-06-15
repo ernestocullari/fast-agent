@@ -1,72 +1,64 @@
 from http.server import BaseHTTPRequestHandler
 import json
+import os
+import time
 
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        response = {
-            "status": "healthy", 
-            "message": "Minimal working version",
-            "agent": "artemis"
+# Try to import Google Sheets dependencies
+try:
+    from googleapiclient.discovery import build
+    from google.oauth2 import service_account
+    GOOGLE_AVAILABLE = True
+except ImportError:
+    GOOGLE_AVAILABLE = False
+
+# INLINE Google Sheets functionality - no separate imports needed
+def get_sheets_data():
+    """Get data from Google Sheets - inline function"""
+    if not GOOGLE_AVAILABLE:
+        return None
+        
+    try:
+        client_email = os.getenv("GOOGLE_CLIENT_EMAIL")
+        private_key = os.getenv("GOOGLE_PRIVATE_KEY", "").replace("\\n", "\n")
+        sheet_id = os.getenv("GOOGLE_SHEET_ID")
+
+        if not all([client_email, private_key, sheet_id]):
+            return None
+
+        credentials_info = {
+            "type": "service_account",
+            "client_email": client_email,
+            "private_key": private_key,
+            "private_key_id": "1",
+            "client_id": "1",
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
         }
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(json.dumps(response).encode())
 
-    def do_POST(self):
-        try:
-            content_length = int(self.headers.get("Content-Length", 0))
-            post_data = self.rfile.read(content_length)
-            body = json.loads(post_data.decode("utf-8"))
-            
-            message = body.get("query", body.get("message", "")).strip()
-            
-            # Hardcoded response for "hardwood floors" to test functionality
-            if "hardwood" in message.lower():
-                response_text = """Based on your audience description, here are the targeting pathways:
+        credentials = service_account.Credentials.from_service_account_info(
+            credentials_info, scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
+        )
 
-**1.** Mobile Location Models → Store Visitors → Hardwood Floor Shoppers
-   _Indicates consumer's likelihood to visit Hardwood Floor Shopping. A predictive model based on store visit patterns._
+        service = build("sheets", "v4", credentials=credentials)
+        sheet = service.spreadsheets()
+        result = sheet.values().get(spreadsheetId=sheet_id, range="A:D").execute()
 
-**2.** Mobile Location Models → Store Visitors → High End Furniture Shopper  
-   _Consumer is likely to shop at a high-end furniture store. Predictive, statistical analysis based on mobile device data._
+        values = result.get("values", [])
+        if not values:
+            return None
 
-These pathways work together to effectively reach your target audience."""
-            else:
-                response_text = f"I received your query: '{message}'. Try 'hardwood floors' for a sample response, or contact ernesto@artemistargeting.com for assistance."
-            
-            response = {
-                "success": True,
-                "response": response_text,
-                "agent": "artemis",
-                "session_id": body.get("session_id", "default"),
-                "query": message
-            }
-            
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
-            self.end_headers()
-            self.wfile.write(json.dumps(response).encode())
-            
-        except Exception as e:
-            error_response = {
-                "success": False,
-                "response": f"Error processing request: {str(e)}",
-                "agent": "artemis"
-            }
-            self.send_response(500)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps(error_response).encode())
+        headers = values[0]
+        data_rows = values[1:]
 
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
+        # Process the data
+        sheets_data = []
+        for row in data_rows:
+            if len(row) >= 4:
+                row_dict = {
+                    "Category":
+cat > requirements.txt << 'EOF'
+google-api-python-client==2.88.0
+google-auth==2.17.3
+google-auth-oauthlib==1.0.0
+google-auth-httplib2==0.1.0
+cachetools==5.3.0
