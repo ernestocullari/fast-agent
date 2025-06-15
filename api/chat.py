@@ -1,35 +1,37 @@
-from flask import Flask, request, jsonify
+import json
 import traceback
 import sys
 import os
 
-app = Flask(__name__)
 
-
-@app.route("/api/chat", methods=["POST", "GET"])
-def chat():
+def handler(req, res):
     try:
-        # Basic test response to confirm endpoint works
-        if request.method == "GET":
-            return jsonify(
-                {
-                    "status": "debug_mode",
-                    "message": "Chat endpoint is responding",
-                    "method": "GET",
-                    "python_version": sys.version,
-                    "working_directory": os.getcwd(),
-                }
-            )
+        # Handle GET method for testing
+        if req.method == "GET":
+            result = {
+                "status": "debug_mode",
+                "message": "Chat endpoint responding correctly",
+                "method": "GET",
+                "python_version": sys.version[:20],
+                "cwd": os.getcwd()[-30:],
+            }
 
-        # Handle POST requests
+            res.status(200).json(result)
+            return
+
+        # Handle POST method
         try:
-            data = request.get_json() or {}
+            # Get request body
+            body = req.body if hasattr(req, "body") else {}
+            if isinstance(body, str):
+                data = json.loads(body) if body else {}
+            else:
+                data = body or {}
         except Exception as e:
-            return jsonify(
-                {"error": "JSON parsing failed", "details": str(e), "raw_data": str(request.data)}
-            ), 400
+            res.status(400).json({"error": "JSON parsing failed", "details": str(e)})
+            return
 
-        # Test Google Sheets import specifically
+        # Test Google Sheets imports
         try:
             from googleapiclient.discovery import build
             from google.oauth2.service_account import Credentials
@@ -38,21 +40,23 @@ def chat():
         except Exception as e:
             sheets_import_status = f"❌ Google Sheets import failed: {str(e)}"
 
-        # Test environment variables
+        # Check environment variables
         required_env_vars = ["GOOGLE_PRIVATE_KEY", "GOOGLE_CLIENT_EMAIL", "GOOGLE_SHEET_ID"]
         env_status = {}
         for var in required_env_vars:
-            env_status[var] = "✅ Present" if os.getenv(var) else "❌ Missing"
+            value = os.getenv(var)
+            env_status[var] = "✅ Present" if value else "❌ Missing"
 
-        return jsonify(
-            {
-                "status": "debug_success",
-                "request_data": data,
-                "sheets_import": sheets_import_status,
-                "environment_variables": env_status,
-                "message": "Debug endpoint working - ready for full implementation",
-            }
-        )
+        # Return debug information
+        response_data = {
+            "status": "debug_success",
+            "request_data": data,
+            "sheets_import": sheets_import_status,
+            "environment_variables": env_status,
+            "message": "Debug endpoint working - ready for full implementation",
+        }
+
+        res.status(200).json(response_data)
 
     except Exception as e:
         # Comprehensive error logging
@@ -60,11 +64,7 @@ def chat():
             "error_type": type(e).__name__,
             "error_message": str(e),
             "traceback": traceback.format_exc(),
-            "python_path": sys.path,
-            "environment": dict(os.environ),
+            "function": "chat_handler_debug",
         }
-        return jsonify({"debug_error": error_details}), 500
 
-
-if __name__ == "__main__":
-    app.run(debug=True)
+        res.status(500).json({"debug_error": error_details})
