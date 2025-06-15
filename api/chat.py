@@ -12,8 +12,8 @@ class handler(BaseHTTPRequestHandler):
         # Health check endpoint
         result = {
             "status": "✅ LIVE",
-            "message": "Artemis Targeting MCP Server - Exact Match Priority",
-            "version": "1.2.0",
+            "message": "Artemis Targeting MCP Server - Nuclear Automotive Prevention",
+            "version": "1.3.0",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
@@ -126,12 +126,108 @@ class handler(BaseHTTPRequestHandler):
         except Exception:
             return None
 
+    def _is_automotive_related(self, option, user_message):
+        """Enhanced automotive detection across all fields"""
+
+        # Comprehensive automotive keywords
+        automotive_keywords = [
+            "auto",
+            "car",
+            "cars",
+            "vehicle",
+            "vehicles",
+            "automotive",
+            "dealership",
+            "truck",
+            "trucks",
+            "suv",
+            "sedan",
+            "honda",
+            "toyota",
+            "ford",
+            "bmw",
+            "mercedes",
+            "audi",
+            "lexus",
+            "acura",
+            "nissan",
+            "mazda",
+            "hyundai",
+            "kia",
+            "jeep",
+            "ram",
+            "chevrolet",
+            "gmc",
+            "cadillac",
+            "buick",
+            "volkswagen",
+            "volvo",
+            "subaru",
+            "infiniti",
+            "lincoln",
+            "chrysler",
+            "dodge",
+            "mitsubishi",
+            "porsche",
+            "ferrari",
+            "lamborghini",
+            "maserati",
+            "motorcycle",
+            "motorcycles",
+            "harley",
+            "honda",
+            "yamaha",
+            "kawasaki",
+            "parts",
+            "maintenance",
+            "repair",
+            "service",
+            "oil change",
+            "tire",
+            "tires",
+        ]
+
+        # Check if user explicitly requested automotive content
+        user_wants_auto = any(keyword in user_message.lower() for keyword in automotive_keywords)
+
+        if user_wants_auto:
+            return False  # Don't filter if user wants automotive content
+
+        # Check all fields for automotive content
+        all_text = f"{option['category']} {option['grouping']} {option['demographic']} {option['description']}".lower()
+
+        # More aggressive automotive detection
+        for keyword in automotive_keywords:
+            if keyword in all_text:
+                return True
+
+        # Check for common automotive patterns
+        automotive_patterns = [
+            r"\bauto\b",
+            r"\bcar\b",
+            r"\bvehicle\b",
+            r"\bmotorcycle\b",
+            r"\bdealer\b",
+            r"\bparts\b.*\b(store|shop)",
+            r"\b(honda|toyota|ford|bmw|mercedes)\b",
+        ]
+
+        for pattern in automotive_patterns:
+            if re.search(pattern, all_text):
+                return True
+
+        return False
+
     def _find_targeting_matches(self, user_message, targeting_data):
         matches = []
         user_words = set(re.findall(r"\b\w+\b", user_message.lower()))
 
-        # EXACT MATCH PRIORITY ALGORITHM
+        # EXACT MATCH PRIORITY ALGORITHM WITH NUCLEAR AUTOMOTIVE PREVENTION
         for option in targeting_data:
+            # NUCLEAR AUTOMOTIVE PREVENTION - Check first, before any scoring
+            if self._is_automotive_related(option, user_message):
+                continue  # Skip this option entirely
+
             score = 0
 
             # TIER 1: PERFECT DEMOGRAPHIC MATCHES (Massive Priority)
@@ -202,12 +298,6 @@ class handler(BaseHTTPRequestHandler):
             for word in user_words:
                 if len(word) > 4 and word in all_text:
                     score += 3
-
-            # Nuclear automotive prevention
-            automotive_keywords = ["car", "auto", "vehicle", "automotive", "dealership"]
-            if any(word in description_lower for word in automotive_keywords):
-                if not any(word in user_message for word in automotive_keywords):
-                    score = 0
 
             # Add to matches if relevant
             if score > 0:
