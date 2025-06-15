@@ -12,8 +12,8 @@ class handler(BaseHTTPRequestHandler):
         # Health check endpoint
         result = {
             "status": "✅ LIVE",
-            "message": "Artemis Targeting MCP Server - Ready for targeting queries",
-            "version": "1.0.1",
+            "message": "Artemis Targeting MCP Server - Universal Exact Matching",
+            "version": "1.1.0",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
@@ -130,66 +130,74 @@ class handler(BaseHTTPRequestHandler):
         matches = []
         user_words = set(re.findall(r"\b\w+\b", user_message.lower()))
 
-        # Enhanced matching with exact phrase detection
+        # Universal exact matching algorithm
         for option in targeting_data:
             score = 0
 
-            # PRIORITY 1: Exact phrase matching (highest weight)
-            # Check for exact phrases in demographic field first
+            # PRIORITY 1: EXACT WORD MATCHING - Demographic Field (Highest Priority)
             demographic_lower = option["demographic"].lower()
-            if "hardwood" in user_message.lower() and "hardwood" in demographic_lower:
-                score += 15  # Very high score for exact matches
-            if "floor" in user_message.lower() and (
-                "floor" in demographic_lower or "flooring" in demographic_lower
-            ):
-                score += 15
+            demographic_words = set(re.findall(r"\b\w+\b", demographic_lower))
+            demo_exact_matches = user_words.intersection(demographic_words)
+            if demo_exact_matches:
+                score += (
+                    len(demo_exact_matches) * 15
+                )  # Very high score for demographic exact matches
 
-            # PRIORITY 2: Description exact word matching (high weight)
-            desc_words = set(re.findall(r"\b\w+\b", option["description"].lower()))
-            desc_matches = user_words.intersection(desc_words)
-            if desc_matches:
-                score += len(desc_matches) * 4  # Increased weight
+                # Bonus for multiple word matches in same field
+                if len(demo_exact_matches) > 1:
+                    score += 10
 
-            # PRIORITY 3: Demographic exact word matching (high weight)
-            demo_words = set(re.findall(r"\b\w+\b", option["demographic"].lower()))
-            demo_matches = user_words.intersection(demo_words)
-            if demo_matches:
-                score += len(demo_matches) * 3  # High weight for demographic matches
+            # PRIORITY 2: EXACT WORD MATCHING - Description Field (High Priority)
+            description_lower = option["description"].lower()
+            description_words = set(re.findall(r"\b\w+\b", description_lower))
+            desc_exact_matches = user_words.intersection(description_words)
+            if desc_exact_matches:
+                score += len(desc_exact_matches) * 8  # High score for description exact matches
 
-            # PRIORITY 4: Category and Grouping matching (medium weight)
-            cat_words = set(re.findall(r"\b\w+\b", option["category"].lower()))
-            group_words = set(re.findall(r"\b\w+\b", option["grouping"].lower()))
+                # Bonus for multiple word matches in same field
+                if len(desc_exact_matches) > 1:
+                    score += 5
 
-            cat_matches = user_words.intersection(cat_words)
-            group_matches = user_words.intersection(group_words)
+            # PRIORITY 3: EXACT WORD MATCHING - Category Field (Medium Priority)
+            category_lower = option["category"].lower()
+            category_words = set(re.findall(r"\b\w+\b", category_lower))
+            cat_exact_matches = user_words.intersection(category_words)
+            if cat_exact_matches:
+                score += len(cat_exact_matches) * 6  # Medium score for category exact matches
 
-            if cat_matches:
-                score += len(cat_matches) * 2
-            if group_matches:
-                score += len(group_matches) * 2
+            # PRIORITY 4: EXACT WORD MATCHING - Grouping Field (Medium Priority)
+            grouping_lower = option["grouping"].lower()
+            grouping_words = set(re.findall(r"\b\w+\b", grouping_lower))
+            group_exact_matches = user_words.intersection(grouping_words)
+            if group_exact_matches:
+                score += len(group_exact_matches) * 6  # Medium score for grouping exact matches
 
-            # PRIORITY 5: Semantic keyword matching for hardwood floors specifically
-            if any(word in user_message.lower() for word in ["hardwood", "floor", "flooring"]):
-                # Look for related terms in all fields
-                all_text = f"{option['category']} {option['grouping']} {option['demographic']} {option['description']}".lower()
-                hardwood_keywords = [
-                    "hardwood",
-                    "floor",
-                    "flooring",
-                    "home",
-                    "property",
-                    "furniture",
-                    "improvement",
-                    "renovation",
-                    "domestic",
-                ]
+            # PRIORITY 5: PHRASE MATCHING - Check for multi-word phrases
+            all_text = f"{option['category']} {option['grouping']} {option['demographic']} {option['description']}".lower()
 
-                for keyword in hardwood_keywords:
-                    if keyword in all_text:
-                        if keyword in ["hardwood", "floor", "flooring"]:
-                            score += 8  # High bonus for exact matches
-                        else:
-                            score += 3  # Medium bonus for related terms
+            # Extract potential phrases from user input (2-3 word combinations)
+            user_words_list = re.findall(r"\b\w+\b", user_message.lower())
+            for i in range(len(user_words_list)):
+                # Check 2-word phrases
+                if i < len(user_words_list) - 1:
+                    phrase = f"{user_words_list[i]} {user_words_list[i + 1]}"
+                    if phrase in all_text:
+                        score += 12  # High bonus for 2-word phrase matches
+
+                # Check 3-word phrases
+                if i < len(user_words_list) - 2:
+                    phrase = (
+                        f"{user_words_list[i]} {user_words_list[i + 1]} {user_words_list[i + 2]}"
+                    )
+                    if phrase in all_text:
+                        score += 18  # Very high bonus for 3-word phrase matches
+
+            # PRIORITY 6: PARTIAL WORD MATCHING (Lower Priority)
+            # Check for partial matches (contains substring)
+            for user_word in user_words:
+                if len(user_word) > 3:  # Only check longer words for partial matching
+                    if user_word in all_text:
+                        score += 2  # Low score for partial matches
 
             # Nuclear automotive prevention - exclude unless explicitly requested
             automotive_keywords = ["car", "auto", "vehicle", "automotive", "dealership"]
