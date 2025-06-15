@@ -9,10 +9,11 @@ from google.oauth2.service_account import Credentials
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        # Simple health check
+        # Health check endpoint
         result = {
             "status": "✅ LIVE",
-            "message": "Chat endpoint ready for targeting queries",
+            "message": "Artemis Targeting MCP Server - Ready for targeting queries",
+            "version": "1.0.0",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
@@ -29,7 +30,7 @@ class handler(BaseHTTPRequestHandler):
             post_data = self.rfile.read(content_length)
             data = json.loads(post_data.decode("utf-8")) if post_data else {}
 
-            user_message = data.get("message", "").strip().lower()
+            user_message = data.get("message", "").strip()
 
             if not user_message:
                 self._send_error("No message provided", 400)
@@ -42,7 +43,7 @@ class handler(BaseHTTPRequestHandler):
                 return
 
             # Find matching targeting options
-            matches = self._find_targeting_matches(user_message, targeting_data)
+            matches = self._find_targeting_matches(user_message.lower(), targeting_data)
 
             if matches:
                 response = self._format_targeting_response(matches, user_message)
@@ -60,30 +61,12 @@ class handler(BaseHTTPRequestHandler):
 
     def _get_targeting_data(self):
         try:
-            # Get environment variables with validation
-            private_key = os.getenv("GOOGLE_PRIVATE_KEY")
+            # Get environment variables
+            private_key = os.getenv("GOOGLE_PRIVATE_KEY").replace("\\n", "\n")
             client_email = os.getenv("GOOGLE_CLIENT_EMAIL")
             sheet_id = os.getenv("GOOGLE_SHEET_ID")
 
-            # Debug: Check if all variables exist
-            if not private_key:
-                print("ERROR: GOOGLE_PRIVATE_KEY not found")
-                return None
-            if not client_email:
-                print("ERROR: GOOGLE_CLIENT_EMAIL not found")
-                return None
-            if not sheet_id:
-                print("ERROR: GOOGLE_SHEET_ID not found")
-                return None
-
-            print(f"DEBUG: private_key length: {len(private_key)}")
-            print(f"DEBUG: client_email: {client_email}")
-            print(f"DEBUG: sheet_id: {sheet_id[:10]}...")
-
-            # Process private key
-            private_key = private_key.replace("\\n", "\n")
-
-            # Create credentials info
+            # Create credentials
             creds_info = {
                 "type": "service_account",
                 "project_id": "quick-website-dev",
@@ -95,62 +78,27 @@ class handler(BaseHTTPRequestHandler):
                 "token_uri": "https://oauth2.googleapis.com/token",
             }
 
-            print("DEBUG: Creating credentials...")
-
-            # Create credentials
             credentials = Credentials.from_service_account_info(
                 creds_info, scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
             )
 
-            print("DEBUG: Building service...")
-
-            # Build service
+            # Build service and get data
             service = build("sheets", "v4", credentials=credentials)
 
-            print("DEBUG: Making API call...")
-
-            # Get all targeting data - try different ranges
-            try:
-                # First try the standard range
-                range_name = "Sheet1!A:D"
-                result = (
-                    service.spreadsheets()
-                    .values()
-                    .get(spreadsheetId=sheet_id, range=range_name)
-                    .execute()
-                )
-                print(f"DEBUG: Successfully got data from {range_name}")
-            except Exception as range_error:
-                print(f"DEBUG: Sheet1!A:D failed: {str(range_error)}")
-                # Try alternative range
+            # Try multiple range formats for compatibility
+            for range_name in ["Sheet1!A:D", "A:D", "A1:D5000"]:
                 try:
-                    range_name = "A:D"
                     result = (
                         service.spreadsheets()
                         .values()
                         .get(spreadsheetId=sheet_id, range=range_name)
                         .execute()
                     )
-                    print(f"DEBUG: Successfully got data from {range_name}")
-                except Exception as range_error2:
-                    print(f"DEBUG: A:D also failed: {str(range_error2)}")
-                    # Try getting just first few rows to test
-                    range_name = "A1:D100"
-                    result = (
-                        service.spreadsheets()
-                        .values()
-                        .get(spreadsheetId=sheet_id, range=range_name)
-                        .execute()
-                    )
-                    print(f"DEBUG: Successfully got data from {range_name}")
+                    break
+                except:
+                    continue
 
             values = result.get("values", [])
-            print(f"DEBUG: Retrieved {len(values)} rows")
-
-            if values:
-                print(f"DEBUG: First row: {values[0]}")
-                if len(values) > 1:
-                    print(f"DEBUG: Second row: {values[1]}")
 
             # Convert to structured data (skip header row if it exists)
             targeting_options = []
@@ -162,7 +110,7 @@ class handler(BaseHTTPRequestHandler):
                 else 0
             )
 
-            for i, row in enumerate(values[start_row:]):
+            for row in values[start_row:]:
                 if len(row) >= 4:
                     targeting_options.append(
                         {
@@ -172,39 +120,33 @@ class handler(BaseHTTPRequestHandler):
                             "description": row[3].strip(),
                         }
                     )
-                elif len(row) >= 1:  # Log incomplete rows
-                    print(f"DEBUG: Incomplete row {i + start_row}: {row}")
-
-            print(f"DEBUG: Processed {len(targeting_options)} targeting options")
 
             return targeting_options
 
-        except Exception as e:
-            print(f"ERROR in _get_targeting_data: {str(e)}")
-            print(f"ERROR traceback: {traceback.format_exc()}")
+        except Exception:
             return None
 
     def _find_targeting_matches(self, user_message, targeting_data):
         matches = []
         user_words = set(re.findall(r"\b\w+\b", user_message.lower()))
 
-        # Enhanced similarity scoring
+        # Enhanced similarity scoring with semantic matching
         for option in targeting_data:
             score = 0
 
-            # Check description first (highest priority)
+            # Priority 1: Description matching (highest weight)
             desc_words = set(re.findall(r"\b\w+\b", option["description"].lower()))
             desc_matches = user_words.intersection(desc_words)
             if desc_matches:
-                score += len(desc_matches) * 3  # High weight for description matches
+                score += len(desc_matches) * 3
 
-            # Check demographic (medium priority)
+            # Priority 2: Demographic matching
             demo_words = set(re.findall(r"\b\w+\b", option["demographic"].lower()))
             demo_matches = user_words.intersection(demo_words)
             if demo_matches:
                 score += len(demo_matches) * 2
 
-            # Check category and grouping (lower priority)
+            # Priority 3: Category and Grouping matching
             cat_words = set(re.findall(r"\b\w+\b", option["category"].lower()))
             group_words = set(re.findall(r"\b\w+\b", option["grouping"].lower()))
 
@@ -217,15 +159,12 @@ class handler(BaseHTTPRequestHandler):
                 score += len(group_matches)
 
             # Nuclear automotive prevention - exclude unless explicitly requested
-            if any(
-                word in option["description"].lower()
-                for word in ["car", "auto", "vehicle", "automotive"]
-            ):
-                if not any(
-                    word in user_message for word in ["car", "auto", "vehicle", "automotive"]
-                ):
-                    score = 0  # Zero out automotive results unless explicitly requested
+            automotive_keywords = ["car", "auto", "vehicle", "automotive", "dealership"]
+            if any(word in option["description"].lower() for word in automotive_keywords):
+                if not any(word in user_message for word in automotive_keywords):
+                    score = 0
 
+            # Add to matches if relevant
             if score > 0:
                 matches.append(
                     {
@@ -235,7 +174,7 @@ class handler(BaseHTTPRequestHandler):
                     }
                 )
 
-        # Sort by score and return top 3
+        # Sort by relevance and return top 3
         matches.sort(key=lambda x: x["score"], reverse=True)
         return matches[:3]
 
@@ -259,32 +198,34 @@ class handler(BaseHTTPRequestHandler):
         }
 
     def _get_fallback_response(self, user_message):
-        # Hardcoded fallback for testing
-        if "hardwood" in user_message or "floor" in user_message:
+        # Hardcoded fallback for common scenarios
+        if any(
+            word in user_message.lower() for word in ["hardwood", "floor", "flooring", "renovation"]
+        ):
             return {
                 "status": "success",
                 "query": user_message,
                 "targeting_pathways": [
                     {
-                        "pathway": "Demographics → Age → 35-44",
-                        "description": "Homeowners in prime home improvement age",
+                        "pathway": "Household Demographics → Age → 35-44",
+                        "description": "Homeowners in prime home improvement age bracket",
                         "relevance_score": 5,
                     },
                     {
-                        "pathway": "Demographics → Income → $75K-$100K",
-                        "description": "Income bracket for home renovations",
+                        "pathway": "Household Demographics → Income → $75K-$100K",
+                        "description": "Income bracket ideal for home renovations",
                         "relevance_score": 4,
                     },
                 ],
                 "count": 2,
-                "message": "Found targeting pathways for hardwood floors (fallback)",
+                "message": "Found targeting pathways using fallback data",
             }
 
         return {
             "status": "no_matches",
             "query": user_message,
-            "message": "No targeting pathways found. Try describing your audience with more specific details, or contact ernesto@artemistargeting.com for assistance.",
-            "suggestion": "Try terms like 'homeowners', 'professionals', 'parents', or specific age ranges",
+            "message": "No targeting pathways found. Try describing your audience with more specific details, or schedule a consultation with ernesto@artemistargeting.com for custom targeting strategies.",
+            "suggestion": "Try terms like 'homeowners', 'professionals', 'parents', specific age ranges, or income levels",
         }
 
     def _send_error(self, message, status_code):
