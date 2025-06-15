@@ -10,7 +10,7 @@ SEARCH_CACHE = {}
 CACHE_SIZE_LIMIT = 100
 TIMEOUT_SECONDS = 45
 
-# Nuclear automotive bias prevention
+# NUCLEAR automotive bias prevention - ZERO tolerance for non-auto queries
 AUTOMOTIVE_TERMS = [
     "acura",
     "audi",
@@ -57,6 +57,20 @@ AUTOMOTIVE_TERMS = [
     "engine",
     "transmission",
     "brake",
+    "cars",
+    "autos",
+    "vehicles",
+    "trucks",
+    "suvs",
+    "sedans",
+    "coupes",
+    "convertibles",
+    "dealers",
+    "dealerships",
+    "motors",
+    "engines",
+    "transmissions",
+    "brakes",
 ]
 
 AUTOMOTIVE_CATEGORIES = ["Automotive", "Auto", "Car", "Vehicle", "Transportation"]
@@ -159,13 +173,34 @@ def is_automotive_content(text):
 
 
 def is_automotive_query(query):
-    """Check if user explicitly wants automotive content"""
+    """Check if user explicitly wants automotive content - STRICT CHECK"""
     query_lower = query.lower()
-    return any(term in query_lower for term in AUTOMOTIVE_TERMS[:15])  # Check top automotive terms
+    # Must contain explicit automotive terms to be considered automotive query
+    explicit_auto_terms = [
+        "car",
+        "auto",
+        "vehicle",
+        "truck",
+        "suv",
+        "sedan",
+        "automotive",
+        "bmw",
+        "mercedes",
+        "toyota",
+        "honda",
+        "ford",
+        "chevrolet",
+        "nissan",
+        "dealership",
+        "dealer",
+        "motor",
+        "engine",
+    ]
+    return any(term in query_lower for term in explicit_auto_terms)
 
 
 def calculate_bias_multiplier(row_data, query):
-    """Calculate bias multiplier to reduce automotive dominance"""
+    """NUCLEAR bias prevention - Eliminate automotive unless explicitly requested"""
     category = str(row_data.get("Category", "")).strip()
     grouping = str(row_data.get("Grouping", "")).strip()
     demographic = str(row_data.get("Demographic", "")).strip()
@@ -180,37 +215,42 @@ def calculate_bias_multiplier(row_data, query):
 
     if is_auto:
         if wants_auto:
-            return 1.0  # No penalty if explicitly requested
+            return 1.0  # Normal scoring if explicitly requested
         else:
-            return 0.01  # 99% penalty for automotive when not requested
+            return 0.0001  # NUCLEAR: 99.99% elimination for non-auto queries
     else:
-        return 8.0  # 800% boost for non-automotive content
+        return 10.0  # 1000% boost for non-automotive content
 
 
 def expand_search_terms(query):
-    """Expand search terms with semantic mappings"""
+    """Expand search terms with semantic mappings - NO automotive expansion for non-auto queries"""
     query_lower = query.lower().strip()
     expanded_terms = [{"term": query_lower, "weight": 2.0}]
+
+    # Only expand automotive terms if query is explicitly automotive
+    wants_auto = is_automotive_query(query)
 
     # Add semantic expansions
     for key, synonyms in SEMANTIC_MAPPINGS.items():
         if key in query_lower:
-            base_weight = (
-                0.2 if key in AUTOMOTIVE_TERMS else 2.0
-            )  # Higher weight for non-automotive
+            # Skip automotive expansions unless explicitly requested
+            if key in AUTOMOTIVE_TERMS and not wants_auto:
+                continue
+
+            base_weight = 0.2 if key in AUTOMOTIVE_TERMS else 2.0
             expanded_terms.append({"term": key, "weight": base_weight})
 
-            for synonym in synonyms[:4]:  # Include more synonyms
+            for synonym in synonyms[:4]:
                 weight = base_weight - 0.1
                 expanded_terms.append({"term": synonym, "weight": weight})
 
-    # Add individual words with better weighting
+    # Add individual words with ZERO automotive weight unless requested
     words = query_lower.split()
     for word in words:
         if len(word) > 2:
-            weight = (
-                0.1 if word in AUTOMOTIVE_TERMS else 1.8
-            )  # Higher weight for non-automotive words
+            if word in AUTOMOTIVE_TERMS and not wants_auto:
+                continue  # Skip automotive words completely
+            weight = 0.1 if word in AUTOMOTIVE_TERMS else 1.8
             expanded_terms.append({"term": word, "weight": weight})
 
     # Remove duplicates and sort by weight
@@ -223,7 +263,7 @@ def expand_search_terms(query):
     final_terms = list(seen_terms.values())
     final_terms.sort(key=lambda x: x["weight"], reverse=True)
 
-    return final_terms[:12]  # Return top 12 terms for good coverage
+    return final_terms[:12]
 
 
 def calculate_similarity(text1, text2):
@@ -258,15 +298,15 @@ def calculate_similarity(text1, text2):
             # BOOST: Extra scoring for exact word matches
             exact_matches = 0
             for word in words1:
-                if word in words2 and len(word) > 3:  # Count meaningful word matches
+                if word in words2 and len(word) > 3:
                     exact_matches += 1
 
             # Apply word match bonus
-            word_bonus = min(exact_matches * 0.25, 0.75)  # Up to 75% bonus for exact words
+            word_bonus = min(exact_matches * 0.25, 0.75)
             final_score = overlap_score + word_bonus
 
-            if final_score > 0.15:  # Lowered threshold
-                return min(final_score, 0.95)  # Cap at 0.95
+            if final_score > 0.15:
+                return min(final_score, 0.95)
 
     # Fuzzy matching
     similarity = difflib.SequenceMatcher(None, t1_lower, t2_lower).ratio()
@@ -274,13 +314,24 @@ def calculate_similarity(text1, text2):
 
 
 def search_in_data(query, sheets_data):
-    """Search through sheets data with bias correction"""
+    """Search through sheets data with NUCLEAR automotive bias prevention"""
     expanded_terms = expand_search_terms(query)
     all_matches = []
+    wants_auto = is_automotive_query(query)
 
-    max_rows = min(len(sheets_data), 800)  # Process up to 800 rows
+    max_rows = min(len(sheets_data), 800)
 
     for row in sheets_data[:max_rows]:
+        # NUCLEAR: Skip automotive rows entirely unless explicitly requested
+        category = str(row.get("Category", "")).strip()
+        grouping = str(row.get("Grouping", "")).strip()
+        demographic = str(row.get("Demographic", "")).strip()
+        description = str(row.get("Description", "")).strip()
+
+        all_text = f"{category} {grouping} {demographic} {description}"
+        if is_automotive_content(all_text) and not wants_auto:
+            continue  # SKIP automotive content completely
+
         best_score = 0
         best_match = None
 
@@ -303,7 +354,7 @@ def search_in_data(query, sheets_data):
                 weight = term_data["weight"]
 
                 similarity = calculate_similarity(term, column_text)
-                if similarity > 0.08:  # OPTIMIZED: Lowered from 0.12 to 0.08
+                if similarity > 0.08:
                     score = similarity * weight * bias_multiplier * column_weight
                     if score > best_score:
                         best_score = score
@@ -316,56 +367,54 @@ def search_in_data(query, sheets_data):
                             "bias_multiplier": bias_multiplier,
                         }
 
-        if best_match and best_score > 0.3:  # OPTIMIZED: Lowered from 0.8 to 0.3
+        if best_match and best_score > 0.3:
             all_matches.append(best_match)
 
     # Sort by score and remove duplicates
     all_matches.sort(key=lambda x: x["score"], reverse=True)
 
-    # Ensure diversity and limit automotive results
+    # Ensure diversity and ZERO automotive results unless requested
     final_matches = []
-    automotive_count = 0
-    max_automotive = 3 if is_automotive_query(query) else 1  # Allow more if explicitly requested
     seen_pathways = set()
     seen_categories = {}
 
     for match in all_matches:
         row = match["row"]
         category = row.get("Category", "")
+
+        # ENFORCE STRICT TAXONOMIC ORDER: Category → Grouping → Demographic
         pathway = f"{category} → {row.get('Grouping', '')} → {row.get('Demographic', '')}"
 
         if pathway in seen_pathways:
             continue
 
-        # Check if automotive
-        is_auto = is_automotive_content(
-            f"{category} {row.get('Grouping', '')} {row.get('Demographic', '')}"
-        )
-
-        if is_auto:
-            if automotive_count >= max_automotive:
-                continue
-            automotive_count += 1
+        # NUCLEAR: Double-check no automotive content unless requested
+        if (
+            is_automotive_content(
+                f"{category} {row.get('Grouping', '')} {row.get('Demographic', '')}"
+            )
+            and not wants_auto
+        ):
+            continue
 
         # Limit per category for diversity
         category_count = seen_categories.get(category, 0)
-        if category_count >= 2:  # Max 2 per category
+        if category_count >= 2:
             continue
 
         final_matches.append(match)
         seen_pathways.add(pathway)
         seen_categories[category] = category_count + 1
 
-        if len(final_matches) >= 6:  # Return top 6 diverse matches
+        if len(final_matches) >= 6:
             break
 
     return final_matches
 
 
 def format_response(matches, query):
-    """Format the response for n8n"""
+    """Format the response for n8n - STRICT Category → Grouping → Demographic format"""
     if not matches:
-        # Enhanced no-match response with better suggestions
         query_lower = query.lower()
         suggestions = []
 
@@ -450,10 +499,7 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
         match = matches[0]
         row = match["row"]
 
-        # Debug logging - remove after testing
-        print(f"DEBUG - Row data: {row}")
-
-        # Ensure correct format: Category → Grouping → Demographic
+        # STRICT FORMAT: Category → Grouping → Demographic
         category = str(row.get("Category", "")).strip()
         grouping = str(row.get("Grouping", "")).strip()
         demographic = str(row.get("Demographic", "")).strip()
@@ -473,7 +519,7 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
         for match in matches:
             row = match["row"]
 
-            # Ensure correct format: Category → Grouping → Demographic
+            # STRICT FORMAT: Category → Grouping → Demographic
             category = str(row.get("Category", "")).strip()
             grouping = str(row.get("Grouping", "")).strip()
             demographic = str(row.get("Demographic", "")).strip()
@@ -481,7 +527,6 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
             pathway = f"{category} → {grouping} → {demographic}"
             response_parts.append(f"• {pathway}")
 
-        # Add description from best match
         best_match = matches[0]
         description = best_match["row"].get("Description", "")
         if description:
@@ -493,7 +538,7 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
         for i, match in enumerate(matches[:3]):
             row = match["row"]
 
-            # Ensure correct format: Category → Grouping → Demographic
+            # STRICT FORMAT: Category → Grouping → Demographic
             category = str(row.get("Category", "")).strip()
             grouping = str(row.get("Grouping", "")).strip()
             demographic = str(row.get("Demographic", "")).strip()
@@ -501,13 +546,11 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
             pathway = f"{category} → {grouping} → {demographic}"
             response_parts.append(f"• {pathway}")
 
-        # Show additional options if available
         if len(matches) > 3:
             response_parts.append(
                 f"\n**Alternative Options:** {len(matches) - 3} more targeting pathways available"
             )
 
-        # Add description from best match
         best_match = matches[0]
         description = best_match["row"].get("Description", "")
         if description:
@@ -563,7 +606,6 @@ class SheetsSearcher:
         """Get and cache sheets data"""
         current_time = time.time()
 
-        # Use cache if fresh (5 minutes)
         if (
             self.sheets_data_cache
             and self.cache_timestamp
@@ -571,17 +613,9 @@ class SheetsSearcher:
         ):
             return self.sheets_data_cache
 
-        # Fetch fresh data
         try:
             sheet = self.service.spreadsheets()
-            result = (
-                sheet.values()
-                .get(
-                    spreadsheetId=self.sheet_id,
-                    range="A:D",
-                )
-                .execute()
-            )
+            result = sheet.values().get(spreadsheetId=self.sheet_id, range="A:D").execute()
 
             values = result.get("values", [])
             if not values:
@@ -590,7 +624,6 @@ class SheetsSearcher:
             headers = values[0]
             data_rows = values[1:]
 
-            # Find column indices
             try:
                 category_idx = headers.index("Category")
                 grouping_idx = headers.index("Grouping")
@@ -599,7 +632,6 @@ class SheetsSearcher:
             except ValueError as e:
                 return []
 
-            # Convert to dictionaries
             sheets_data = []
             for row in data_rows:
                 if len(row) > max(category_idx, grouping_idx, demographic_idx, description_idx):
@@ -618,7 +650,6 @@ class SheetsSearcher:
                         else "",
                     }
 
-                    # Skip empty rows
                     if any(
                         [
                             row_dict["Category"],
@@ -629,7 +660,6 @@ class SheetsSearcher:
                     ):
                         sheets_data.append(row_dict)
 
-            # Cache results
             self.sheets_data_cache = sheets_data
             self.cache_timestamp = current_time
 
@@ -639,18 +669,16 @@ class SheetsSearcher:
             return []
 
     def search_demographics(self, query):
-        """Main search function with enhanced fallback logic"""
+        """Main search function with NUCLEAR automotive prevention"""
         start_time = time.time()
 
         try:
-            # Check cache
             cache_key = query.lower().strip()
             if cache_key in SEARCH_CACHE:
                 cached_result = SEARCH_CACHE[cache_key].copy()
                 cached_result["cache_hit"] = True
                 return cached_result
 
-            # Get sheets data
             sheets_data = self._get_sheets_data()
             if not sheets_data:
                 return {
@@ -659,12 +687,9 @@ class SheetsSearcher:
                     "error": "No data available",
                 }
 
-            # Primary search with bias correction
             matches = search_in_data(query, sheets_data)
 
-            # If no matches, try with individual key words
             if not matches:
-                # Extract key words and try again
                 words = [
                     word
                     for word in query.lower().split()
@@ -672,13 +697,12 @@ class SheetsSearcher:
                     and word
                     not in ["the", "and", "for", "with", "like", "want", "need", "that", "this"]
                 ]
-                for word in words[:3]:  # Try top 3 words
+                for word in words[:3]:
                     fallback_matches = search_in_data(word, sheets_data)
                     if fallback_matches:
-                        matches = fallback_matches[:2]  # Limit fallback results
+                        matches = fallback_matches[:2]
                         break
 
-            # Format response
             response_text = format_response(matches, query)
             success = len(matches) > 0
 
@@ -687,12 +711,11 @@ class SheetsSearcher:
                 "response": response_text,
                 "query": query,
                 "matches_found": len(matches),
-                "search_method": "optimized_nuclear_bias_corrected",
+                "search_method": "nuclear_automotive_prevention",
                 "response_time": round(time.time() - start_time, 2),
                 "cache_hit": False,
             }
 
-            # Cache successful results
             if success and len(SEARCH_CACHE) < CACHE_SIZE_LIMIT:
                 SEARCH_CACHE[cache_key] = result.copy()
 
