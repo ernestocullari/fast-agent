@@ -1,2 +1,1 @@
-google-api-python-client==2.88.0
-google-auth==2.17.3
+# Minimal requirements - no Google Sheets for now
