@@ -144,7 +144,7 @@ def is_automotive_query(query):
 
 
 def calculate_enhanced_similarity(query_text, row_data):
-    """FINAL version with bulletproof automotive blocking"""
+    """ENHANCED version with comprehensive semantic matching"""
 
     category = str(row_data.get("Category", "")).strip().lower()
     grouping = str(row_data.get("Grouping", "")).strip().lower()
@@ -154,10 +154,9 @@ def calculate_enhanced_similarity(query_text, row_data):
     combined_text = f"{category} {grouping} {demographic} {description}"
     query_lower = query_text.lower().strip()
 
-    # BULLETPROOF automotive blocking - ZERO tolerance
+    # BULLETPROOF automotive blocking
     wants_auto = is_automotive_query(query_text)
     if not wants_auto:
-        # Enhanced automotive detection with more specific terms
         auto_indicators = [
             "auto",
             "car",
@@ -181,45 +180,113 @@ def calculate_enhanced_similarity(query_text, row_data):
             "intenders",
         ]
 
-        # Check if ANY automotive terms appear ANYWHERE in the combined text
         for auto_term in auto_indicators:
             if auto_term in combined_text:
-                return 0.0  # IMMEDIATE REJECTION - no automotive content allowed
+                return 0.0  # IMMEDIATE REJECTION
 
     score = 0.0
 
-    # PRIORITY 1: Perfect category matching for wellness/health
-    if "wellness" in query_lower or "health" in query_lower:
-        if "health and well being" in category:
-            score += 100.0  # MASSIVE boost for exact category match
-        elif "health" in category:
-            score += 50.0  # High boost for health category
-        elif "wellness" in combined_text or "health" in combined_text:
-            score += 25.0
+    # ENHANCED SEMANTIC MAPPINGS
+    enhanced_mappings = {
+        # Health & Wellness expanded
+        "health": [
+            "health and well being",
+            "health & fitness",
+            "organic and natural",
+            "personal fitness & exercise",
+            "health & natural foods",
+        ],
+        "wellness": [
+            "health and well being",
+            "health & fitness",
+            "organic and natural",
+            "personal fitness & exercise",
+            "health & natural foods",
+        ],
+        "fitness": [
+            "health & fitness",
+            "personal fitness & exercise",
+            "sports & recreation",
+            "health and well being",
+        ],
+        "gym": ["health & fitness", "personal fitness & exercise", "sports & recreation"],
+        "exercise": ["health & fitness", "personal fitness & exercise", "sports & recreation"],
+        "organic": [
+            "organic and natural",
+            "health & natural foods",
+            "organic grocery",
+            "health and well being",
+        ],
+        "natural": ["organic and natural", "health & natural foods", "organic grocery"],
+        # Mental wellness & mindfulness
+        "mental": [
+            "health and well being",
+            "health & fitness",
+            "sports & recreation",
+            "social causes",
+        ],
+        "mindfulness": [
+            "health and well being",
+            "sports & recreation",
+            "social causes",
+            "health & fitness",
+        ],
+        "yoga": [
+            "health & fitness",
+            "personal fitness & exercise",
+            "sports & recreation",
+            "health and well being",
+        ],
+        "meditation": ["health and well being", "health & fitness", "social causes"],
+        # Luxury & Premium
+        "luxury": ["premium lifestyle", "luxury retail stores", "luxury department store"],
+        "affluent": ["premium lifestyle", "luxury retail stores", "luxury department store"],
+        "premium": ["premium lifestyle", "luxury retail stores", "luxury department store"],
+        "upscale": ["premium lifestyle", "luxury retail stores", "luxury department store"],
+        # Financial
+        "financial": ["consumer financial insights", "financial services"],
+        "investment": ["consumer financial insights", "financial services"],
+        "wealth": ["consumer financial insights", "financial services", "premium lifestyle"],
+        # Travel
+        "travel": ["travel", "vacation", "leisure"],
+        "vacation": ["travel", "vacation", "leisure"],
+        "hotel": ["travel", "vacation", "leisure"],
+        # Home & DIY
+        "home": ["home improvement", "diy", "home furnishings"],
+        "improvement": ["home improvement", "diy"],
+        "renovation": ["home improvement", "diy"],
+        "diy": ["diy", "home improvement"],
+        # Shopping & Retail
+        "shopping": ["retail shoppers", "purchase predictors", "online behavior"],
+        "retail": ["retail shoppers", "purchase predictors", "online behavior"],
+    }
 
-    # PRIORITY 2: Other category mappings
-    if "luxury" in query_lower:
-        if "premium" in category or "luxury" in category or "affluent" in category:
-            score += 100.0
-    if "financial" in query_lower:
-        if "financial" in category or "banking" in category:
-            score += 100.0
-    if "travel" in query_lower:
-        if "travel" in category or "leisure" in category:
-            score += 100.0
-    if "home" in query_lower:
-        if "home" in category or "household" in category:
-            score += 100.0
-
-    # PRIORITY 3: General matching
-    if query_lower in combined_text:
-        score += 10.0
-
+    # PRIORITY 1: Enhanced category matching (100+ points)
     query_words = query_lower.split()
+    for word in query_words:
+        if word in enhanced_mappings:
+            target_categories = enhanced_mappings[word]
+            for target_cat in target_categories:
+                if target_cat in category or target_cat in grouping:
+                    score += 100.0  # High score for category match
+                    break
+
+    # PRIORITY 2: Direct text matching (50+ points)
+    if query_lower in combined_text:
+        score += 50.0
+
+    # PRIORITY 3: Individual word matching (10+ points each)
     for word in query_words:
         if len(word) > 3:
             if word in combined_text:
-                score += 2.0
+                score += 10.0
+
+    # PRIORITY 4: Category diversity boost
+    # Reduce Household Demographics dominance
+    if "household demographics" in category:
+        score *= 0.7  # 30% reduction for household demographics
+    elif "consumer models" in category or "purchase predictors" in category:
+        score *= 1.3  # 30% boost for other relevant categories
 
     return score
 
@@ -569,7 +636,7 @@ class SheetsSearcher:
             return []
 
     def search_demographics(self, query, request_more=False):
-        """HARDCODED search function with BULLETPROOF automotive blocking"""
+        """HARDCODED search function with ENHANCED semantic matching"""
         start_time = time.time()
 
         try:
@@ -628,7 +695,7 @@ class SheetsSearcher:
                 "query": original_query,
                 "matches_found": len(matches),
                 "total_available": formatted_response.get("total_available", 0),
-                "search_method": "bulletproof_automotive_blocking",
+                "search_method": "enhanced_semantic_matching",
                 "response_time": round(time.time() - start_time, 2),
                 "cache_hit": False,
             }
@@ -654,5 +721,5 @@ sheets_searcher = SheetsSearcher()
 
 
 def search_sheets_data(query):
-    """Main function called by MCP server with BULLETPROOF automotive blocking"""
+    """Main function called by MCP server with ENHANCED semantic matching"""
     return sheets_searcher.search_demographics(query)
