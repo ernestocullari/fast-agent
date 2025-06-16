@@ -10,66 +10,170 @@ SEARCH_CACHE = {}
 CACHE_SIZE_LIMIT = 100
 TIMEOUT_SECONDS = 45
 
-# NUCLEAR automotive bias prevention - ZERO tolerance for non-auto queries
+# Enhanced automotive bias prevention - ZERO tolerance for non-auto queries
 AUTOMOTIVE_TERMS = [
-    "acura", "audi", "bmw", "buick", "cadillac", "chevrolet", "chevy", "chrysler", 
-    "dodge", "ford", "gmc", "honda", "hyundai", "infiniti", "jaguar", "jeep", "kia", 
-    "lexus", "lincoln", "mazda", "mercedes", "benz", "mitsubishi", "nissan", "pontiac", 
-    "porsche", "ram", "subaru", "toyota", "volkswagen", "volvo", "car", "auto", 
-    "vehicle", "truck", "suv", "sedan", "coupe", "convertible", "dealership", 
-    "automotive", "motor", "engine", "transmission", "brake", "cars", "autos", 
-    "vehicles", "trucks", "suvs", "sedans", "coupes", "convertibles", "dealers", 
-    "dealerships", "motors", "engines", "transmissions", "brakes"
+    "acura",
+    "audi",
+    "bmw",
+    "buick",
+    "cadillac",
+    "chevrolet",
+    "chevy",
+    "chrysler",
+    "dodge",
+    "ford",
+    "gmc",
+    "honda",
+    "hyundai",
+    "infiniti",
+    "jaguar",
+    "jeep",
+    "kia",
+    "lexus",
+    "lincoln",
+    "mazda",
+    "mercedes",
+    "benz",
+    "mitsubishi",
+    "nissan",
+    "pontiac",
+    "porsche",
+    "ram",
+    "subaru",
+    "toyota",
+    "volkswagen",
+    "volvo",
+    "car",
+    "auto",
+    "vehicle",
+    "truck",
+    "suv",
+    "sedan",
+    "coupe",
+    "convertible",
+    "dealership",
+    "automotive",
+    "motor",
+    "engine",
+    "transmission",
+    "brake",
+    "cars",
+    "autos",
+    "vehicles",
+    "trucks",
+    "suvs",
+    "sedans",
+    "coupes",
+    "convertibles",
+    "dealers",
+    "dealerships",
+    "motors",
+    "engines",
+    "transmissions",
+    "brakes",
+    "tesla",
+    "ferrari",
+    "lamborghini",
+    "maserati",
+    "bentley",
+    "automobile",
+    "automobiles",
+    "auto parts",
+    "car parts",
+    "automotive parts",
+    "auto service",
+    "car service",
+    "tire",
+    "tires",
+    "mechanic",
+    "garage",
+    "auto repair",
+    "car repair",
+    "automotive repair",
 ]
 
+
 def is_automotive_content(text):
-    """Check if content is automotive-related"""
-    text_lower = text.lower()
-    return any(term in text_lower for term in AUTOMOTIVE_TERMS)
+    """Enhanced check if content is automotive-related with word boundaries"""
+    if not text:
+        return False
+    text_lower = text.lower().strip()
+
+    # Check for automotive terms with word boundaries to avoid false positives
+    for term in AUTOMOTIVE_TERMS:
+        # Use word boundaries to avoid matching parts of other words
+        if (
+            f" {term} " in f" {text_lower} "
+            or text_lower.startswith(f"{term} ")
+            or text_lower.endswith(f" {term}")
+        ):
+            return True
+    return False
+
 
 def is_automotive_query(query):
     """Check if user explicitly wants automotive content"""
     query_lower = query.lower()
     explicit_auto_terms = [
-        "car", "auto", "vehicle", "truck", "suv", "sedan", "automotive", 
-        "bmw", "mercedes", "toyota", "honda", "ford", "chevrolet", 
-        "nissan", "dealership", "dealer", "motor", "engine"
+        "car",
+        "auto",
+        "vehicle",
+        "truck",
+        "suv",
+        "sedan",
+        "automotive",
+        "bmw",
+        "mercedes",
+        "toyota",
+        "honda",
+        "ford",
+        "chevrolet",
+        "chevy",
+        "nissan",
+        "dealership",
+        "dealer",
+        "motor",
+        "engine",
+        "tesla",
+        "audi",
     ]
     return any(term in query_lower for term in explicit_auto_terms)
 
+
 def calculate_enhanced_similarity(query_text, row_data):
-    """Enhanced similarity calculation prioritizing exact matches"""
-    
+    """Enhanced similarity calculation with early automotive filtering"""
+
     # Combine all searchable fields
-    category = str(row_data.get('Category', '')).strip()
-    grouping = str(row_data.get('Grouping', '')).strip() 
-    demographic = str(row_data.get('Demographic', '')).strip()
-    description = str(row_data.get('Description', '')).strip()
-    
+    category = str(row_data.get("Category", "")).strip()
+    grouping = str(row_data.get("Grouping", "")).strip()
+    demographic = str(row_data.get("Demographic", "")).strip()
+    description = str(row_data.get("Description", "")).strip()
+
     combined_text = f"{category} {grouping} {demographic} {description}".lower()
     query_lower = query_text.lower().strip()
-    
-    # NUCLEAR: Absolutely no automotive results unless explicitly requested
-    if is_automotive_content(combined_text) and not is_automotive_query(query_text):
+
+    # EARLY EXIT: Block automotive content unless explicitly requested
+    wants_auto = is_automotive_query(query_text)
+    if not wants_auto and is_automotive_content(combined_text):
         return 0.0
-    
+
     # Initialize score
     score = 0.0
-    
+
     # 1. EXACT PHRASE MATCHING (highest priority)
     if query_lower in combined_text:
         score += 0.9
-        
-    # 2. EXACT WORD MATCHING (very high priority) 
+
+    # 2. EXACT WORD MATCHING (very high priority)
     query_words = set(query_lower.split())
     text_words = set(combined_text.split())
-    
+
     # Count exact word matches
     exact_matches = len(query_words.intersection(text_words))
     if exact_matches > 0:
         word_match_ratio = exact_matches / len(query_words)
         score += word_match_ratio * 0.7
-    
+
     # 3. PARTIAL WORD MATCHING for longer words
     for query_word in query_words:
         if len(query_word) >= 4:  # Only for substantial words
@@ -78,31 +182,33 @@ def calculate_enhanced_similarity(query_text, row_data):
                     if query_word in text_word or text_word in query_word:
                         score += 0.3
                         break
-    
+
     # 4. BOOST FOR DESCRIPTION FIELD (most detailed)
     if query_lower in description.lower():
         score += 0.4
-        
+
     # 5. BOOST FOR DEMOGRAPHIC FIELD (most specific)
     if query_lower in demographic.lower():
         score += 0.3
-    
-    # 6. Common semantic matches (hardcoded for reliability)
+
+    # 6. Enhanced semantic matches (non-automotive focus)
     semantic_boosts = {
-        'hardwood': ['floor', 'flooring'],
-        'floor': ['hardwood', 'flooring'], 
-        'floors': ['hardwood', 'flooring'],
-        'flooring': ['hardwood', 'floor'],
-        'shop': ['shopper', 'shopping', 'store'],
-        'shopping': ['shopper', 'shop', 'store'],
-        'buy': ['buyer', 'shopper', 'purchase'],
-        'home': ['house', 'household', 'residence'],
-        'improvement': ['renovation', 'remodel', 'upgrade'],
-        'travel': ['vacation', 'trip', 'tourist'],
-        'health': ['fitness', 'wellness', 'medical'],
-        'luxury': ['premium', 'upscale', 'affluent']
+        "luxury": ["premium", "upscale", "affluent", "elite", "exclusive"],
+        "wellness": ["health", "fitness", "wellbeing", "healthy"],
+        "health": ["wellness", "fitness", "medical", "healthcare"],
+        "fitness": ["wellness", "health", "gym", "exercise", "workout"],
+        "financial": ["finance", "banking", "investment", "wealth", "money"],
+        "travel": ["vacation", "trip", "tourist", "leisure", "hotel"],
+        "shopping": ["retail", "shopper", "consumer", "purchase", "buying"],
+        "home": ["house", "household", "residence", "property"],
+        "improvement": ["renovation", "remodel", "upgrade", "construction"],
+        "professional": ["business", "executive", "corporate", "career"],
+        "hardwood": ["floor", "flooring", "floors"],
+        "floor": ["hardwood", "flooring", "floors"],
+        "floors": ["hardwood", "flooring", "floor"],
+        "flooring": ["hardwood", "floor", "floors"],
     }
-    
+
     for query_word in query_words:
         if query_word in semantic_boosts:
             related_words = semantic_boosts[query_word]
@@ -110,99 +216,170 @@ def calculate_enhanced_similarity(query_text, row_data):
                 if related_word in combined_text:
                     score += 0.2
                     break
-    
+
     return min(score, 1.0)  # Cap at 1.0
 
+
 def search_in_data(query, sheets_data):
-    """Search through sheets data with enhanced matching"""
-    
+    """Search through sheets data with TRIPLE automotive filtering"""
+
     all_matches = []
     wants_auto = is_automotive_query(query)
-    
+
     # Process up to 1000 rows for better coverage
     max_rows = min(len(sheets_data), 1000)
-    
+
     for row in sheets_data[:max_rows]:
-        # Skip automotive content unless explicitly requested
+        # FIRST FILTER: Check each field individually for automotive content
         category = str(row.get("Category", "")).strip()
         grouping = str(row.get("Grouping", "")).strip()
         demographic = str(row.get("Demographic", "")).strip()
         description = str(row.get("Description", "")).strip()
-        
+
+        # SECOND FILTER: Check combined text
         all_text = f"{category} {grouping} {demographic} {description}"
-        if is_automotive_content(all_text) and not wants_auto:
-            continue
-            
-        # Calculate similarity score
+
+        # TRIPLE CHECK: Skip if any automotive content found and not requested
+        if not wants_auto:
+            if (
+                is_automotive_content(category)
+                or is_automotive_content(grouping)
+                or is_automotive_content(demographic)
+                or is_automotive_content(description)
+                or is_automotive_content(all_text)
+            ):
+                continue
+
+        # Calculate similarity score (includes additional automotive check)
         similarity_score = calculate_enhanced_similarity(query, row)
-        
-        if similarity_score > 0.1:  # Much lower threshold to catch more matches
-            all_matches.append({
-                "row": row,
-                "score": similarity_score,
-                "similarity": similarity_score
-            })
-    
+
+        if similarity_score > 0.1:
+            all_matches.append(
+                {"row": row, "score": similarity_score, "similarity": similarity_score}
+            )
+
     # Sort by score
     all_matches.sort(key=lambda x: x["score"], reverse=True)
-    
-    # Remove duplicates while maintaining diversity
+
+    # FINAL FILTER: Remove duplicates and ensure no automotive leakage
     final_matches = []
     seen_pathways = set()
     seen_categories = {}
-    
+
     for match in all_matches:
         row = match["row"]
         category = row.get("Category", "")
-        
+
         # Create pathway identifier
         pathway = f"{category} → {row.get('Grouping', '')} → {row.get('Demographic', '')}"
-        
+
         if pathway in seen_pathways:
             continue
-            
-        # Double-check no automotive unless requested
-        if is_automotive_content(pathway) and not wants_auto:
+
+        # FINAL automotive check on pathway
+        if not wants_auto and is_automotive_content(pathway):
             continue
-            
+
         # Limit per category for diversity (max 2 per category)
         category_count = seen_categories.get(category, 0)
         if category_count >= 2:
             continue
-            
+
         final_matches.append(match)
         seen_pathways.add(pathway)
         seen_categories[category] = category_count + 1
-        
+
         # Stop at 8 total matches
         if len(final_matches) >= 8:
             break
-    
+
     return final_matches
+
 
 def format_response_hardcoded(matches, query, request_more=False):
     """HARDCODED response formatting with strict requirements"""
-    
+
     if not matches:
         # Provide helpful suggestions based on query type
         query_lower = query.lower()
         suggestions = []
-        
-        if any(word in query_lower for word in ["home", "house", "improvement", "renovation", "hardware", "flooring", "hardwood", "kitchen", "bathroom"]):
-            suggestions = ["home improvement shoppers", "hardware store visitors", "home renovation intenders", "flooring shoppers"]
-        elif any(word in query_lower for word in ["health", "fitness", "gym", "wellness", "nutrition", "exercise"]):
-            suggestions = ["health conscious consumers", "fitness enthusiasts", "wellness shoppers", "gym members"]
-        elif any(word in query_lower for word in ["fashion", "shopping", "retail", "clothing", "style", "beauty"]):
-            suggestions = ["fashion shoppers", "retail enthusiasts", "luxury shoppers", "brand conscious consumers"]
-        elif any(word in query_lower for word in ["travel", "hotel", "vacation", "tourism", "leisure"]):
-            suggestions = ["hotel guests", "business travelers", "vacation planners", "luxury travel shoppers"]
+
+        if any(
+            word in query_lower
+            for word in [
+                "home",
+                "house",
+                "improvement",
+                "renovation",
+                "hardware",
+                "flooring",
+                "hardwood",
+                "kitchen",
+                "bathroom",
+            ]
+        ):
+            suggestions = [
+                "home improvement shoppers",
+                "hardware store visitors",
+                "home renovation intenders",
+                "flooring shoppers",
+            ]
+        elif any(
+            word in query_lower
+            for word in ["health", "fitness", "gym", "wellness", "nutrition", "exercise"]
+        ):
+            suggestions = [
+                "health conscious consumers",
+                "fitness enthusiasts",
+                "wellness shoppers",
+                "gym members",
+            ]
+        elif any(
+            word in query_lower
+            for word in ["fashion", "shopping", "retail", "clothing", "style", "beauty"]
+        ):
+            suggestions = [
+                "fashion shoppers",
+                "retail enthusiasts",
+                "luxury shoppers",
+                "brand conscious consumers",
+            ]
+        elif any(
+            word in query_lower for word in ["travel", "hotel", "vacation", "tourism", "leisure"]
+        ):
+            suggestions = [
+                "hotel guests",
+                "business travelers",
+                "vacation planners",
+                "luxury travel shoppers",
+            ]
         elif any(word in query_lower for word in ["food", "restaurant", "dining", "coffee"]):
-            suggestions = ["restaurant visitors", "fine dining enthusiasts", "coffee shop customers", "food enthusiasts"]
+            suggestions = [
+                "restaurant visitors",
+                "fine dining enthusiasts",
+                "coffee shop customers",
+                "food enthusiasts",
+            ]
+        elif any(
+            word in query_lower
+            for word in ["finance", "financial", "investment", "wealth", "money"]
+        ):
+            suggestions = [
+                "financial services users",
+                "investment shoppers",
+                "wealth management clients",
+                "premium banking customers",
+            ]
         else:
-            suggestions = ["high income households", "affluent professionals", "premium shoppers", "luxury consumers"]
-        
+            suggestions = [
+                "high income households",
+                "affluent professionals",
+                "premium shoppers",
+                "luxury consumers",
+            ]
+
         suggestion_text = ", ".join(suggestions[:3])
-        
+
         return {
             "success": False,
             "response": f"""I couldn't find strong matches in our targeting database for '{query}'.
@@ -216,7 +393,7 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
             "pathways": [],
             "query": query,
         }
-    
+
     # HARDCODED REQUIREMENT: Always provide minimum 2 combinations
     if request_more and len(matches) > 2:
         # If user requests more, provide next 2 combinations
@@ -229,11 +406,11 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
         # If we have more than 2, add up to 3 total for initial response
         if len(matches) > 2:
             selected_matches.extend(matches[2:3])
-    
+
     # HARDCODED: Ensure minimum 2 combinations always
     if len(selected_matches) < 2 and len(matches) >= 2:
         selected_matches = matches[:2]
-    
+
     # Build response with strict taxonomic format
     pathways = []
     for match in selected_matches:
@@ -243,29 +420,35 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
         grouping = str(row.get("Grouping", "")).strip()
         demographic = str(row.get("Demographic", "")).strip()
         description = str(row.get("Description", "")).strip()
-        
+
         pathway = f"{category} → {grouping} → {demographic}"
-        pathways.append({
-            "pathway": pathway,
-            "description": description[:150] + "..." if len(description) > 150 else description,
-        })
-    
+        pathways.append(
+            {
+                "pathway": pathway,
+                "description": description[:150] + "..." if len(description) > 150 else description,
+            }
+        )
+
     # Format response text
     response_parts = ["Based on your audience description, here are the targeting pathways:\n"]
-    
+
     for i, pathway_data in enumerate(pathways, 1):
         response_parts.append(f"**{i}.** {pathway_data['pathway']}")
         if pathway_data["description"]:
             response_parts.append(f"   _{pathway_data['description']}_\n")
-    
+
     # Add "more options" info if available
     remaining_matches = len(matches) - len(selected_matches)
     if remaining_matches > 0:
-        response_parts.append(f"**Additional Options Available:** {remaining_matches} more targeting combinations")
+        response_parts.append(
+            f"**Additional Options Available:** {remaining_matches} more targeting combinations"
+        )
         response_parts.append("Ask for 'more targeting options' to see additional pathways.")
-    
-    response_parts.append("\nThese pathways work together to effectively reach your target audience.")
-    
+
+    response_parts.append(
+        "\nThese pathways work together to effectively reach your target audience."
+    )
+
     return {
         "success": True,
         "response": "\n".join(response_parts),
@@ -274,6 +457,7 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
         "query": query,
         "request_more": request_more,
     }
+
 
 class SheetsSearcher:
     def __init__(self):
@@ -347,18 +531,28 @@ class SheetsSearcher:
             for row in data_rows:
                 if len(row) > max(category_idx, grouping_idx, demographic_idx, description_idx):
                     row_dict = {
-                        "Category": str(row[category_idx]).strip() if len(row) > category_idx else "",
-                        "Grouping": str(row[grouping_idx]).strip() if len(row) > grouping_idx else "",
-                        "Demographic": str(row[demographic_idx]).strip() if len(row) > demographic_idx else "",
-                        "Description": str(row[description_idx]).strip() if len(row) > description_idx else "",
+                        "Category": str(row[category_idx]).strip()
+                        if len(row) > category_idx
+                        else "",
+                        "Grouping": str(row[grouping_idx]).strip()
+                        if len(row) > grouping_idx
+                        else "",
+                        "Demographic": str(row[demographic_idx]).strip()
+                        if len(row) > demographic_idx
+                        else "",
+                        "Description": str(row[description_idx]).strip()
+                        if len(row) > description_idx
+                        else "",
                     }
 
-                    if any([
-                        row_dict["Category"],
-                        row_dict["Grouping"], 
-                        row_dict["Demographic"],
-                        row_dict["Description"],
-                    ]):
+                    if any(
+                        [
+                            row_dict["Category"],
+                            row_dict["Grouping"],
+                            row_dict["Demographic"],
+                            row_dict["Description"],
+                        ]
+                    ):
                         sheets_data.append(row_dict)
 
             self.sheets_data_cache = sheets_data
@@ -370,7 +564,7 @@ class SheetsSearcher:
             return []
 
     def search_demographics(self, query, request_more=False):
-        """HARDCODED search function with strict requirements"""
+        """HARDCODED search function with TRIPLE automotive filtering"""
         start_time = time.time()
 
         try:
@@ -404,11 +598,14 @@ class SheetsSearcher:
 
             matches = search_in_data(original_query, sheets_data)
 
-            # If no matches, try individual words as fallback
+            # If no matches, try individual words as fallback (still with automotive filtering)
             if not matches:
                 words = [
-                    word for word in original_query.lower().split()
-                    if len(word) > 3 and word not in ["the", "and", "for", "with", "like", "want", "need", "that", "this"]
+                    word
+                    for word in original_query.lower().split()
+                    if len(word) > 3
+                    and word
+                    not in ["the", "and", "for", "with", "like", "want", "need", "that", "this"]
                 ]
                 for word in words[:3]:
                     fallback_matches = search_in_data(word, sheets_data)
@@ -426,7 +623,7 @@ class SheetsSearcher:
                 "query": original_query,
                 "matches_found": len(matches),
                 "total_available": formatted_response.get("total_available", 0),
-                "search_method": "enhanced_similarity_matching",
+                "search_method": "triple_automotive_filtering",
                 "response_time": round(time.time() - start_time, 2),
                 "cache_hit": False,
             }
@@ -446,9 +643,11 @@ class SheetsSearcher:
                 "response_time": round(time.time() - start_time, 2),
             }
 
+
 # Global instance
 sheets_searcher = SheetsSearcher()
 
+
 def search_sheets_data(query):
-    """Main function called by MCP server with HARDCODED requirements"""
+    """Main function called by MCP server with TRIPLE automotive filtering"""
     return sheets_searcher.search_demographics(query)
