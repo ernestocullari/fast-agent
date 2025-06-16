@@ -141,9 +141,8 @@ def is_automotive_query(query):
 
 
 def calculate_enhanced_similarity(query_text, row_data):
-    """FIXED similarity calculation that finds wellness and health matches"""
+    """SIMPLE category-first matching that actually works"""
 
-    # Combine all searchable fields
     category = str(row_data.get("Category", "")).strip().lower()
     grouping = str(row_data.get("Grouping", "")).strip().lower()
     demographic = str(row_data.get("Demographic", "")).strip().lower()
@@ -152,102 +151,60 @@ def calculate_enhanced_similarity(query_text, row_data):
     combined_text = f"{category} {grouping} {demographic} {description}"
     query_lower = query_text.lower().strip()
 
-    # EARLY EXIT: Block automotive content unless explicitly requested
+    # Block automotive unless explicitly requested
     wants_auto = is_automotive_query(query_text)
     if not wants_auto and is_automotive_content(combined_text):
         return 0.0
 
-    # Initialize score
     score = 0.0
 
-    # CRITICAL FIX: Direct category matching for wellness queries
-    if "wellness" in query_lower or "health" in query_lower:
-        if "health and well being" in combined_text:
-            score += 2.0  # Very high score for exact category match
-        elif "health" in combined_text or "well being" in combined_text:
-            score += 1.5
-
-    # Enhanced semantic matching with exact phrases from your Google Sheet
-    wellness_keywords = {
-        "wellness": [
-            "health and well being",
-            "health",
-            "well being",
-            "wellbeing",
-            "fitness",
-            "healthy",
-        ],
-        "health": [
-            "health and well being",
-            "wellness",
-            "well being",
-            "wellbeing",
-            "fitness",
-            "healthy",
-            "medical",
-        ],
-        "fitness": [
-            "health and well being",
-            "health",
-            "wellness",
-            "well being",
-            "wellbeing",
-            "exercise",
-            "gym",
-        ],
-        "luxury": ["premium", "upscale", "affluent", "elite", "exclusive"],
-        "financial": ["finance", "banking", "investment", "wealth", "money"],
-        "travel": ["vacation", "trip", "tourist", "leisure", "hotel"],
-        "shopping": ["retail", "shopper", "consumer", "purchase", "buying"],
-        "home": ["house", "household", "residence", "property"],
-        "improvement": ["renovation", "remodel", "upgrade", "construction"],
-        "professional": ["business", "executive", "corporate", "career"],
-        "hardwood": ["floor", "flooring", "floors"],
-        "floor": ["hardwood", "flooring", "floors"],
-        "floors": ["hardwood", "flooring", "floor"],
-        "flooring": ["hardwood", "floor", "floors"],
+    # PRIORITY 1: Direct category matching (highest scores)
+    category_mappings = {
+        "wellness": "health and well being",
+        "health": "health and well being",
+        "fitness": "health and well being",
+        "luxury": "premium lifestyle",
+        "financial": "financial services",
+        "travel": "travel and leisure",
+        "home": "home improvement",
+        "shopping": "retail",
     }
 
-    # 1. EXACT PHRASE MATCHING (highest priority)
-    if query_lower in combined_text:
-        score += 0.9
+    # Check if query matches any category mapping
+    for query_term, target_category in category_mappings.items():
+        if query_term in query_lower:
+            if target_category in category:
+                score += 10.0  # Very high score for direct category match
+                break
 
-    # 2. SEMANTIC MATCHING with high priority
+    # PRIORITY 2: Exact phrase matching
+    if query_lower in combined_text:
+        score += 5.0
+
+    # PRIORITY 3: Word-by-word matching
     query_words = query_lower.split()
     for word in query_words:
-        if word in wellness_keywords:
-            for related_word in wellness_keywords[word]:
-                if related_word in combined_text:
-                    score += 0.8
-                    break
+        if len(word) > 3:  # Skip small words
+            if word in combined_text:
+                score += 1.0
 
-    # 3. EXACT WORD MATCHING
-    query_words_set = set(query_words)
-    text_words_set = set(combined_text.split())
+    # PRIORITY 4: Semantic synonyms
+    wellness_synonyms = ["health", "well being", "wellbeing", "fitness", "healthy"]
+    luxury_synonyms = ["premium", "upscale", "affluent", "exclusive"]
 
-    exact_matches = len(query_words_set.intersection(text_words_set))
-    if exact_matches > 0:
-        word_match_ratio = exact_matches / len(query_words_set)
-        score += word_match_ratio * 0.7
+    if "wellness" in query_lower or "health" in query_lower:
+        for synonym in wellness_synonyms:
+            if synonym in combined_text:
+                score += 2.0
+                break
 
-    # 4. PARTIAL WORD MATCHING for longer words
-    for query_word in query_words:
-        if len(query_word) >= 4:
-            for text_word in text_words_set:
-                if len(text_word) >= 4:
-                    if query_word in text_word or text_word in query_word:
-                        score += 0.3
-                        break
+    if "luxury" in query_lower:
+        for synonym in luxury_synonyms:
+            if synonym in combined_text:
+                score += 2.0
+                break
 
-    # 5. BOOST FOR DESCRIPTION FIELD (most detailed)
-    if query_lower in description:
-        score += 0.4
-
-    # 6. BOOST FOR DEMOGRAPHIC FIELD (most specific)
-    if query_lower in demographic:
-        score += 0.3
-
-    return min(score, 2.0)  # Allow higher scores for better matches
+    return score
 
 
 def search_in_data(query, sheets_data):
@@ -595,7 +552,7 @@ class SheetsSearcher:
             return []
 
     def search_demographics(self, query, request_more=False):
-        """HARDCODED search function with FIXED wellness matching"""
+        """HARDCODED search function with SIMPLE category-first matching"""
         start_time = time.time()
 
         try:
@@ -654,7 +611,7 @@ class SheetsSearcher:
                 "query": original_query,
                 "matches_found": len(matches),
                 "total_available": formatted_response.get("total_available", 0),
-                "search_method": "fixed_wellness_matching",
+                "search_method": "simple_category_first",
                 "response_time": round(time.time() - start_time, 2),
                 "cache_hit": False,
             }
@@ -680,5 +637,5 @@ sheets_searcher = SheetsSearcher()
 
 
 def search_sheets_data(query):
-    """Main function called by MCP server with FIXED wellness matching"""
+    """Main function called by MCP server with SIMPLE category-first matching"""
     return sheets_searcher.search_demographics(query)
