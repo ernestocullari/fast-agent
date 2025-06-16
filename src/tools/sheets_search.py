@@ -605,17 +605,21 @@ class SheetsSearcher:
             raise
 
     def _get_sheets_data(self):
-        """Get and cache sheets data"""
+        """Get and cache sheets data with rate limiting"""
         current_time = time.time()
 
+        # EXTENDED CACHE: Keep data for 30 minutes (was 5 minutes)
         if (
             self.sheets_data_cache
             and self.cache_timestamp
-            and current_time - self.cache_timestamp < 300
-        ):
+            and current_time - self.cache_timestamp < 1800
+        ):  # 30 minutes
             return self.sheets_data_cache
 
         try:
+            # ADD RATE LIMITING: Wait 2 seconds between API calls
+            time.sleep(2)
+
             sheet = self.service.spreadsheets()
             result = sheet.values().get(spreadsheetId=self.sheet_id, range="A:D").execute()
 
@@ -665,9 +669,15 @@ class SheetsSearcher:
             self.sheets_data_cache = sheets_data
             self.cache_timestamp = current_time
 
+            print(f"✅ Successfully loaded {len(sheets_data)} rows from Google Sheets")
             return sheets_data
 
         except Exception as e:
+            print(f"❌ Google Sheets API Error: {e}")
+            # Return cached data if available, even if expired
+            if self.sheets_data_cache:
+                print("🔄 Using cached data due to API error")
+                return self.sheets_data_cache
             return []
 
     def search_demographics(self, query, request_more=False):
