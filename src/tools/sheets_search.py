@@ -101,14 +101,12 @@ def is_automotive_content(text):
         return False
     text_lower = text.lower().strip()
 
-    # Check for automotive terms with word boundaries to avoid false positives
     for term in AUTOMOTIVE_TERMS:
-        # Use word boundaries to avoid matching parts of other words
         if (
             f" {term} " in f" {text_lower} "
             or text_lower.startswith(f"{term} ")
             or text_lower.endswith(f" {term}")
-            or term == text_lower  # Exact match
+            or term == text_lower
         ):
             return True
     return False
@@ -144,7 +142,7 @@ def is_automotive_query(query):
 
 
 def calculate_enhanced_similarity(query_text, row_data):
-    """ENHANCED version with comprehensive semantic matching"""
+    """FIXED version with CORRECT category mappings from actual Google Sheet"""
 
     category = str(row_data.get("Category", "")).strip().lower()
     grouping = str(row_data.get("Grouping", "")).strip().lower()
@@ -179,114 +177,151 @@ def calculate_enhanced_similarity(query_text, row_data):
             "intender",
             "intenders",
         ]
-
         for auto_term in auto_indicators:
             if auto_term in combined_text:
                 return 0.0  # IMMEDIATE REJECTION
 
     score = 0.0
 
-    # ENHANCED SEMANTIC MAPPINGS
+    # FIXED SEMANTIC MAPPINGS - Using ACTUAL Google Sheet categories
     enhanced_mappings = {
-        # Health & Wellness expanded
+        # Health & Wellness - CORRECTED to actual categories
         "health": [
-            "health and well being",
-            "health & fitness",
-            "organic and natural",
-            "personal fitness & exercise",
-            "health & natural foods",
+            "household behaviors & interests",  # Main health category
+            "household indicators",  # Contains health interests
+            "lifestyle propensities",  # Fitness enthusiast
+            "consumer behavior",  # Healthcare workers
         ],
         "wellness": [
-            "health and well being",
-            "health & fitness",
-            "organic and natural",
-            "personal fitness & exercise",
-            "health & natural foods",
+            "household behaviors & interests",  # Health & fitness grouping
+            "household indicators",  # Healthy living interest
+            "lifestyle models",  # Consumer mentality
         ],
         "fitness": [
-            "health & fitness",
-            "personal fitness & exercise",
-            "sports & recreation",
-            "health and well being",
+            "household behaviors & interests",  # Health & Fitness, Sports & Recreation
+            "household demographics",  # Fitness Moms/Dads
+            "household indicators",  # Interest in fitness
+            "lifestyle propensities",  # Fitness Enthusiast
         ],
-        "gym": ["health & fitness", "personal fitness & exercise", "sports & recreation"],
-        "exercise": ["health & fitness", "personal fitness & exercise", "sports & recreation"],
+        "gym": [
+            "household behaviors & interests",  # Sports & Recreation → Personal Fitness
+            "lifestyle propensities",  # Fitness Enthusiast
+        ],
+        "exercise": [
+            "household behaviors & interests",  # Sports & Recreation → Personal Fitness
+            "lifestyle propensities",  # Fitness Enthusiast
+        ],
         "organic": [
-            "organic and natural",
-            "health & natural foods",
-            "organic grocery",
-            "health and well being",
+            "consumer models",  # Consumer Personalities → Organic and natural
+            "purchase predictors",  # Retail Shoppers → Organic Grocery
+            "household behaviors & interests",  # Health & Natural Foods
         ],
-        "natural": ["organic and natural", "health & natural foods", "organic grocery"],
-        # Mental wellness & mindfulness
+        "natural": [
+            "consumer models",  # Consumer Personalities → Organic and natural
+            "household behaviors & interests",  # Health & Natural Foods, Natural Health Remedies
+        ],
+        # Mental wellness & mindfulness - CORRECTED
         "mental": [
-            "health and well being",
-            "health & fitness",
-            "sports & recreation",
-            "social causes",
+            "household behaviors & interests",  # Reading → Medical/Health
+            "lifestyle models",  # Consumer Mentality categories
         ],
         "mindfulness": [
-            "health and well being",
-            "sports & recreation",
-            "social causes",
-            "health & fitness",
+            "household behaviors & interests",  # Social Causes → Health
+            "lifestyle models",  # Consumer Mentality
         ],
         "yoga": [
-            "health & fitness",
-            "personal fitness & exercise",
-            "sports & recreation",
-            "health and well being",
+            "household behaviors & interests",  # Sports & Recreation
+            "lifestyle propensities",  # Activity & Interests
         ],
-        "meditation": ["health and well being", "health & fitness", "social causes"],
-        # Luxury & Premium
-        "luxury": ["premium lifestyle", "luxury retail stores", "luxury department store"],
-        "affluent": ["premium lifestyle", "luxury retail stores", "luxury department store"],
-        "premium": ["premium lifestyle", "luxury retail stores", "luxury department store"],
-        "upscale": ["premium lifestyle", "luxury retail stores", "luxury department store"],
-        # Financial
-        "financial": ["consumer financial insights", "financial services"],
-        "investment": ["consumer financial insights", "financial services"],
-        "wealth": ["consumer financial insights", "financial services", "premium lifestyle"],
-        # Travel
-        "travel": ["travel", "vacation", "leisure"],
-        "vacation": ["travel", "vacation", "leisure"],
-        "hotel": ["travel", "vacation", "leisure"],
-        # Home & DIY
-        "home": ["home improvement", "diy", "home furnishings"],
-        "improvement": ["home improvement", "diy"],
-        "renovation": ["home improvement", "diy"],
-        "diy": ["diy", "home improvement"],
-        # Shopping & Retail
-        "shopping": ["retail shoppers", "purchase predictors", "online behavior"],
-        "retail": ["retail shoppers", "purchase predictors", "online behavior"],
+        "meditation": [
+            "household behaviors & interests",  # Social Causes → Health
+            "lifestyle models",  # Consumer Mentality
+        ],
+        # Financial - CORRECTED
+        "financial": [
+            "consumer financial insights",  # Main financial category
+            "financial",  # Direct financial category
+        ],
+        "investment": [
+            "consumer financial insights",
+            "financial",
+        ],
+        "wealth": [
+            "consumer financial insights",
+            "financial",
+        ],
+        # Shopping & Retail - CORRECTED
+        "shopping": [
+            "purchase predictors",  # Retail Shoppers
+            "household behaviors & interests",  # Shopping grouping
+            "online behavior models",  # Online behavior
+        ],
+        "retail": [
+            "purchase predictors",  # Retail Shoppers
+            "household behaviors & interests",  # Shopping
+        ],
+        # Home & Property - CORRECTED
+        "home": [
+            "home property",  # Main home category
+            "mortgage/home purchase",  # Home purchase
+        ],
+        "improvement": [
+            "home property",
+            "household behaviors & interests",  # DIY interests
+        ],
+        "renovation": [
+            "home property",
+            "mortgage/home purchase",
+        ],
     }
 
-    # PRIORITY 1: Enhanced category matching (100+ points)
+    # PRIORITY 1: Enhanced category matching (150+ points for exact matches)
     query_words = query_lower.split()
     for word in query_words:
         if word in enhanced_mappings:
             target_categories = enhanced_mappings[word]
             for target_cat in target_categories:
-                if target_cat in category or target_cat in grouping:
-                    score += 100.0  # High score for category match
+                if target_cat in category:
+                    score += 150.0  # HIGHEST score for category match
                     break
 
-    # PRIORITY 2: Direct text matching (50+ points)
-    if query_lower in combined_text:
-        score += 50.0
+    # PRIORITY 2: Grouping and demographic matching (100+ points)
+    for word in query_words:
+        if len(word) > 3:
+            # Check for grouping matches
+            if word in grouping:
+                score += 100.0
+            # Check for demographic matches
+            if word in demographic:
+                score += 80.0
 
-    # PRIORITY 3: Individual word matching (10+ points each)
+    # PRIORITY 3: Description matching (50+ points)
+    for word in query_words:
+        if len(word) > 3:
+            if word in description:
+                score += 50.0
+
+    # PRIORITY 4: Direct text matching (30+ points)
+    if query_lower in combined_text:
+        score += 30.0
+
+    # PRIORITY 5: Individual word matching (10+ points each)
     for word in query_words:
         if len(word) > 3:
             if word in combined_text:
                 score += 10.0
 
-    # PRIORITY 4: Category diversity boost
-    # Reduce Household Demographics dominance
+    # CATEGORY DIVERSITY BOOSTING - Reduce Household Demographics dominance
     if "household demographics" in category:
-        score *= 0.7  # 30% reduction for household demographics
-    elif "consumer models" in category or "purchase predictors" in category:
-        score *= 1.3  # 30% boost for other relevant categories
+        score *= 0.5  # 50% reduction for household demographics
+    elif "household behaviors & interests" in category:
+        score *= 1.8  # 80% boost for behaviors & interests (health/fitness)
+    elif "lifestyle propensities" in category:
+        score *= 1.7  # 70% boost for lifestyle propensities
+    elif "consumer models" in category:
+        score *= 1.6  # 60% boost for consumer models
+    elif "purchase predictors" in category:
+        score *= 1.5  # 50% boost for purchase predictors
 
     return score
 
@@ -333,10 +368,10 @@ def search_in_data(query, sheets_data):
     # Sort by score (highest first)
     all_matches.sort(key=lambda x: x["score"], reverse=True)
 
-    # FINAL FILTER: Remove duplicates and ensure no automotive leakage
+    # FINAL FILTER: Remove duplicates and ensure category diversity
     final_matches = []
     seen_pathways = set()
-    seen_categories = {}
+    category_counts = {}
 
     for match in all_matches:
         row = match["row"]
@@ -352,17 +387,17 @@ def search_in_data(query, sheets_data):
         if not wants_auto and is_automotive_content(pathway.lower()):
             continue
 
-        # Limit per category for diversity (max 3 per category for better results)
-        category_count = seen_categories.get(category, 0)
-        if category_count >= 3:
+        # Limit per category for diversity (max 2 per category for better selection)
+        category_count = category_counts.get(category, 0)
+        if category_count >= 2:
             continue
 
         final_matches.append(match)
         seen_pathways.add(pathway)
-        seen_categories[category] = category_count + 1
+        category_counts[category] = category_count + 1
 
-        # Stop at 10 total matches for better selection
-        if len(final_matches) >= 10:
+        # Stop at 15 total matches for better selection
+        if len(final_matches) >= 15:
             break
 
     return final_matches
@@ -636,7 +671,7 @@ class SheetsSearcher:
             return []
 
     def search_demographics(self, query, request_more=False):
-        """HARDCODED search function with ENHANCED semantic matching"""
+        """HARDCODED search function with FIXED semantic matching"""
         start_time = time.time()
 
         try:
@@ -695,7 +730,7 @@ class SheetsSearcher:
                 "query": original_query,
                 "matches_found": len(matches),
                 "total_available": formatted_response.get("total_available", 0),
-                "search_method": "enhanced_semantic_matching",
+                "search_method": "fixed_semantic_matching",
                 "response_time": round(time.time() - start_time, 2),
                 "cache_hit": False,
             }
@@ -721,5 +756,5 @@ sheets_searcher = SheetsSearcher()
 
 
 def search_sheets_data(query):
-    """Main function called by MCP server with ENHANCED semantic matching"""
+    """Main function called by MCP server with FIXED semantic matching"""
     return sheets_searcher.search_demographics(query)
