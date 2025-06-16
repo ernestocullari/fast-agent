@@ -768,3 +768,4 @@ sheets_searcher = SheetsSearcher()
 def search_sheets_data(query):
     """Main function called by MCP server with FIXED semantic matching"""
     return sheets_searcher.search_demographics(query)
+# Force deploy Mon Jun 16 22:27:18 UTC 2025
