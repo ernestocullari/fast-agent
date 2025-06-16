@@ -141,15 +141,15 @@ def is_automotive_query(query):
 
 
 def calculate_enhanced_similarity(query_text, row_data):
-    """Enhanced similarity calculation with early automotive filtering"""
+    """FIXED similarity calculation that finds wellness and health matches"""
 
     # Combine all searchable fields
-    category = str(row_data.get("Category", "")).strip()
-    grouping = str(row_data.get("Grouping", "")).strip()
-    demographic = str(row_data.get("Demographic", "")).strip()
-    description = str(row_data.get("Description", "")).strip()
+    category = str(row_data.get("Category", "")).strip().lower()
+    grouping = str(row_data.get("Grouping", "")).strip().lower()
+    demographic = str(row_data.get("Demographic", "")).strip().lower()
+    description = str(row_data.get("Description", "")).strip().lower()
 
-    combined_text = f"{category} {grouping} {demographic} {description}".lower()
+    combined_text = f"{category} {grouping} {demographic} {description}"
     query_lower = query_text.lower().strip()
 
     # EARLY EXIT: Block automotive content unless explicitly requested
@@ -160,43 +160,42 @@ def calculate_enhanced_similarity(query_text, row_data):
     # Initialize score
     score = 0.0
 
-    # 1. EXACT PHRASE MATCHING (highest priority)
-    if query_lower in combined_text:
-        score += 0.9
+    # CRITICAL FIX: Direct category matching for wellness queries
+    if "wellness" in query_lower or "health" in query_lower:
+        if "health and well being" in combined_text:
+            score += 2.0  # Very high score for exact category match
+        elif "health" in combined_text or "well being" in combined_text:
+            score += 1.5
 
-    # 2. EXACT WORD MATCHING (very high priority)
-    query_words = set(query_lower.split())
-    text_words = set(combined_text.split())
-
-    # Count exact word matches
-    exact_matches = len(query_words.intersection(text_words))
-    if exact_matches > 0:
-        word_match_ratio = exact_matches / len(query_words)
-        score += word_match_ratio * 0.7
-
-    # 3. PARTIAL WORD MATCHING for longer words
-    for query_word in query_words:
-        if len(query_word) >= 4:  # Only for substantial words
-            for text_word in text_words:
-                if len(text_word) >= 4:
-                    if query_word in text_word or text_word in query_word:
-                        score += 0.3
-                        break
-
-    # 4. BOOST FOR DESCRIPTION FIELD (most detailed)
-    if query_lower in description.lower():
-        score += 0.4
-
-    # 5. BOOST FOR DEMOGRAPHIC FIELD (most specific)
-    if query_lower in demographic.lower():
-        score += 0.3
-
-    # 6. Enhanced semantic matches (non-automotive focus)
-    semantic_boosts = {
+    # Enhanced semantic matching with exact phrases from your Google Sheet
+    wellness_keywords = {
+        "wellness": [
+            "health and well being",
+            "health",
+            "well being",
+            "wellbeing",
+            "fitness",
+            "healthy",
+        ],
+        "health": [
+            "health and well being",
+            "wellness",
+            "well being",
+            "wellbeing",
+            "fitness",
+            "healthy",
+            "medical",
+        ],
+        "fitness": [
+            "health and well being",
+            "health",
+            "wellness",
+            "well being",
+            "wellbeing",
+            "exercise",
+            "gym",
+        ],
         "luxury": ["premium", "upscale", "affluent", "elite", "exclusive"],
-        "wellness": ["health", "fitness", "wellbeing", "healthy"],
-        "health": ["wellness", "fitness", "medical", "healthcare"],
-        "fitness": ["wellness", "health", "gym", "exercise", "workout"],
         "financial": ["finance", "banking", "investment", "wealth", "money"],
         "travel": ["vacation", "trip", "tourist", "leisure", "hotel"],
         "shopping": ["retail", "shopper", "consumer", "purchase", "buying"],
@@ -209,19 +208,50 @@ def calculate_enhanced_similarity(query_text, row_data):
         "flooring": ["hardwood", "floor", "floors"],
     }
 
-    for query_word in query_words:
-        if query_word in semantic_boosts:
-            related_words = semantic_boosts[query_word]
-            for related_word in related_words:
+    # 1. EXACT PHRASE MATCHING (highest priority)
+    if query_lower in combined_text:
+        score += 0.9
+
+    # 2. SEMANTIC MATCHING with high priority
+    query_words = query_lower.split()
+    for word in query_words:
+        if word in wellness_keywords:
+            for related_word in wellness_keywords[word]:
                 if related_word in combined_text:
-                    score += 0.2
+                    score += 0.8
                     break
 
-    return min(score, 1.0)  # Cap at 1.0
+    # 3. EXACT WORD MATCHING
+    query_words_set = set(query_words)
+    text_words_set = set(combined_text.split())
+
+    exact_matches = len(query_words_set.intersection(text_words_set))
+    if exact_matches > 0:
+        word_match_ratio = exact_matches / len(query_words_set)
+        score += word_match_ratio * 0.7
+
+    # 4. PARTIAL WORD MATCHING for longer words
+    for query_word in query_words:
+        if len(query_word) >= 4:
+            for text_word in text_words_set:
+                if len(text_word) >= 4:
+                    if query_word in text_word or text_word in query_word:
+                        score += 0.3
+                        break
+
+    # 5. BOOST FOR DESCRIPTION FIELD (most detailed)
+    if query_lower in description:
+        score += 0.4
+
+    # 6. BOOST FOR DEMOGRAPHIC FIELD (most specific)
+    if query_lower in demographic:
+        score += 0.3
+
+    return min(score, 2.0)  # Allow higher scores for better matches
 
 
 def search_in_data(query, sheets_data):
-    """Search through sheets data with TRIPLE automotive filtering"""
+    """Search through sheets data with TRIPLE automotive filtering and improved matching"""
 
     all_matches = []
     wants_auto = is_automotive_query(query)
@@ -253,12 +283,13 @@ def search_in_data(query, sheets_data):
         # Calculate similarity score (includes additional automotive check)
         similarity_score = calculate_enhanced_similarity(query, row)
 
-        if similarity_score > 0.1:
+        # Lower threshold to catch more matches but prioritize high scores
+        if similarity_score > 0.05:
             all_matches.append(
                 {"row": row, "score": similarity_score, "similarity": similarity_score}
             )
 
-    # Sort by score
+    # Sort by score (highest first)
     all_matches.sort(key=lambda x: x["score"], reverse=True)
 
     # FINAL FILTER: Remove duplicates and ensure no automotive leakage
@@ -280,17 +311,17 @@ def search_in_data(query, sheets_data):
         if not wants_auto and is_automotive_content(pathway):
             continue
 
-        # Limit per category for diversity (max 2 per category)
+        # Limit per category for diversity (max 3 per category for better results)
         category_count = seen_categories.get(category, 0)
-        if category_count >= 2:
+        if category_count >= 3:
             continue
 
         final_matches.append(match)
         seen_pathways.add(pathway)
         seen_categories[category] = category_count + 1
 
-        # Stop at 8 total matches
-        if len(final_matches) >= 8:
+        # Stop at 10 total matches for better selection
+        if len(final_matches) >= 10:
             break
 
     return final_matches
@@ -564,7 +595,7 @@ class SheetsSearcher:
             return []
 
     def search_demographics(self, query, request_more=False):
-        """HARDCODED search function with TRIPLE automotive filtering"""
+        """HARDCODED search function with FIXED wellness matching"""
         start_time = time.time()
 
         try:
@@ -623,7 +654,7 @@ class SheetsSearcher:
                 "query": original_query,
                 "matches_found": len(matches),
                 "total_available": formatted_response.get("total_available", 0),
-                "search_method": "triple_automotive_filtering",
+                "search_method": "fixed_wellness_matching",
                 "response_time": round(time.time() - start_time, 2),
                 "cache_hit": False,
             }
@@ -649,5 +680,5 @@ sheets_searcher = SheetsSearcher()
 
 
 def search_sheets_data(query):
-    """Main function called by MCP server with TRIPLE automotive filtering"""
+    """Main function called by MCP server with FIXED wellness matching"""
     return sheets_searcher.search_demographics(query)
