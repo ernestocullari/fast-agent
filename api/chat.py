@@ -3,17 +3,20 @@ import json
 import os
 import traceback
 import re
+import hashlib
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 
+# Global conversation state tracking
+CONVERSATION_STATE = {}
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         # Health check endpoint
         result = {
             "status": "✅ LIVE",
-            "message": "Artemis Targeting MCP Server - FITNESS FOCUSED + MORE OPTIONS",
-            "version": "2.1.0-FITNESS-MEMORY",
+            "message": "Artemis Targeting MCP Server - PROGRESSIVE PATHWAYS (1-3, 4-7, 8-11, 12-15)",
+            "version": "3.0.0-PROGRESSIVE",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
@@ -45,8 +48,8 @@ class handler(BaseHTTPRequestHandler):
             # Apply semantic phrase mapping
             processed_message = self._apply_semantic_mapping(user_message.lower())
 
-            # Find matching targeting options with FITNESS PRIORITY + MORE OPTIONS MEMORY
-            matches = self._find_targeting_matches_fitness_focused(processed_message, targeting_data, user_message)
+            # Find matching targeting options with PROGRESSIVE PATHWAY LOGIC
+            matches = self._find_targeting_matches_progressive(processed_message, targeting_data, user_message)
 
             if matches:
                 response = self._format_targeting_response(matches, user_message)
@@ -61,6 +64,36 @@ class handler(BaseHTTPRequestHandler):
 
         except Exception as e:
             self._send_error(f"Server error: {str(e)}", 500)
+
+    def _create_conversation_key(self, original_message):
+        """Create a stable key for conversation tracking based on core intent"""
+        # Remove "more options" noise and create key from core intent
+        core_words = []
+        noise_words = ['more', 'additional', 'other', 'else', 'different', 'what', 
+                      'show', 'give', 'find', 'me', 'options', 'pathways', 
+                      'combinations', 'great', 'do', 'you', 'have', 'any']
+        
+        words = re.findall(r'\b\w+\b', original_message.lower())
+        for word in words:
+            if word not in noise_words and len(word) > 2:
+                core_words.append(word)
+        
+        # Create stable hash from core intent
+        core_intent = ' '.join(sorted(core_words))
+        return hashlib.md5(core_intent.encode()).hexdigest()[:12]
+
+    def _get_conversation_state(self, conversation_key):
+        """Get or create conversation state"""
+        global CONVERSATION_STATE
+        
+        if conversation_key not in CONVERSATION_STATE:
+            CONVERSATION_STATE[conversation_key] = {
+                'request_count': 0,
+                'last_query': '',
+                'creation_time': traceback.format_exc() if False else 'now'
+            }
+        
+        return CONVERSATION_STATE[conversation_key]
 
     def _apply_semantic_mapping(self, user_message):
         """Convert natural language phrases to targeting database terminology"""
@@ -219,13 +252,23 @@ class handler(BaseHTTPRequestHandler):
 
         return False
 
-    def _find_targeting_matches_fitness_focused(self, user_message, targeting_data, original_message):
-        """FITNESS-FOCUSED matching with 10,000+ point priority + MORE OPTIONS MEMORY"""
+    def _find_targeting_matches_progressive(self, user_message, targeting_data, original_message):
+        """PROGRESSIVE PATHWAY MATCHING: 1-3, 4-7, 8-11, 12-15"""
         
-        matches = []
-        user_words = set(re.findall(r"\b\w+\b", user_message.lower()))
+        # Create conversation key and get state
+        conversation_key = self._create_conversation_key(original_message)
+        conv_state = self._get_conversation_state(conversation_key)
         
-        # ENHANCED FITNESS INTENT DETECTION WITH MORE OPTIONS MEMORY
+        # Increment request count
+        conv_state['request_count'] += 1
+        conv_state['last_query'] = original_message
+        
+        request_number = conv_state['request_count']
+        
+        print(f"🔄 CONVERSATION KEY: {conversation_key}")
+        print(f"📊 REQUEST NUMBER: {request_number}")
+        
+        # ENHANCED FITNESS INTENT DETECTION
         fitness_keywords = ['gym', 'fitness', 'exercise', 'workout', 'health', 'athletic', 'sport', 'wellness', 'active']
         
         # DETECT "MORE OPTIONS" REQUESTS
@@ -233,14 +276,18 @@ class handler(BaseHTTPRequestHandler):
         is_more_request = any(phrase in original_message.lower() for phrase in more_options_phrases)
         
         # SMART FITNESS INTENT LOGIC
-        if is_more_request:
-            # If asking for "more options", assume fitness intent (most common use case)
+        if is_more_request or request_number > 1:
+            # If asking for "more options" or subsequent request, assume fitness intent
             has_fitness_intent = True
-            print(f"🔄 MORE OPTIONS REQUEST - Assuming fitness intent for: {original_message}")
+            print(f"🔄 SUBSEQUENT REQUEST #{request_number} - Assuming fitness intent")
         else:
-            # Regular fitness detection
+            # Regular fitness detection for first request
             has_fitness_intent = any(keyword in original_message.lower() for keyword in fitness_keywords)
-            print(f"🎯 FITNESS INTENT DETECTED: {has_fitness_intent} for query: {original_message}")
+            print(f"🎯 INITIAL FITNESS INTENT DETECTED: {has_fitness_intent}")
+
+        # Find ALL matches first
+        all_matches = []
+        user_words = set(re.findall(r"\b\w+\b", user_message.lower()))
 
         for option in targeting_data:
             # NUCLEAR AUTOMOTIVE PREVENTION
@@ -279,7 +326,6 @@ class handler(BaseHTTPRequestHandler):
                 for exact_match, points in exact_fitness_matches.items():
                     if exact_match in all_text:
                         score += points
-                        print(f"🎯 EXACT FITNESS MATCH: {exact_match} (+{points} points)")
 
                 # PRIORITY 2: FITNESS CATEGORY BOOSTS (5,000+ points)
                 fitness_categories = {
@@ -293,19 +339,14 @@ class handler(BaseHTTPRequestHandler):
                 for fit_cat, points in fitness_categories.items():
                     if fit_cat in category_lower:
                         score += points
-                        print(f"🏋️ FITNESS CATEGORY: {fit_cat} (+{points} points)")
 
                 # PRIORITY 3: FITNESS WORD MATCHING (1,000+ points each)
                 for word in fitness_keywords:
                     if word in all_text:
                         score += 1000
-                        print(f"💪 FITNESS WORD: {word} (+1000 points)")
                         
             else:
-                # NON-FITNESS QUERIES: Standard low scoring
-                user_words = set(re.findall(r"\b\w+\b", user_message.lower()))
-                
-                # Standard scoring for non-fitness
+                # NON-FITNESS QUERIES: Standard scoring
                 demographic_words = set(re.findall(r"\b\w+\b", demographic_lower))
                 exact_demo_matches = user_words.intersection(demographic_words)
 
@@ -328,25 +369,56 @@ class handler(BaseHTTPRequestHandler):
 
             # Add to matches if relevant
             if score > 0:
-                matches.append({
+                all_matches.append({
                     "option": option,
                     "score": score,
                     "pathway": f"{option['category']} → {option['grouping']} → {option['demographic']}",
                 })
-                
-                if score > 1000:  # Log high-scoring matches
-                    print(f"🏆 HIGH SCORE: {score} for {option['demographic']}")
 
-        # Sort by relevance and return top 3
-        matches.sort(key=lambda x: x["score"], reverse=True)
+        # Sort all matches by score (highest first)
+        all_matches.sort(key=lambda x: x["score"], reverse=True)
         
-        print(f"📊 Total matches found: {len(matches)}")
-        if matches:
-            print(f"🥇 Top 3 scores: {[m['score'] for m in matches[:3]]}")
+        # PROGRESSIVE PATHWAY SELECTION
+        if request_number == 1:
+            # First request: Return top 3 (positions 0-2)
+            selected_matches = all_matches[0:3]
+            range_text = "1-3"
+        elif request_number == 2:
+            # Second request: Return next 4 (positions 3-6)
+            selected_matches = all_matches[3:7]
+            range_text = "4-7"
+        elif request_number == 3:
+            # Third request: Return next 4 (positions 7-10)
+            selected_matches = all_matches[7:11]
+            range_text = "8-11"
+        elif request_number == 4:
+            # Fourth request: Return final 4 (positions 11-14)
+            selected_matches = all_matches[11:15]
+            range_text = "12-15"
+        else:
+            # Beyond 4 requests: No more options
+            selected_matches = []
+            range_text = "EXHAUSTED"
         
-        return matches[:3]
+        print(f"🎯 RETURNING PATHWAYS {range_text}: {len(selected_matches)} matches")
+        print(f"📊 TOTAL AVAILABLE: {len(all_matches)} matches")
+        
+        if selected_matches:
+            scores = [m['score'] for m in selected_matches]
+            print(f"🏆 SCORES FOR THIS BATCH: {scores}")
+        
+        return selected_matches
 
     def _format_targeting_response(self, matches, user_message):
+        if not matches:
+            return {
+                "status": "no_more_matches",
+                "query": user_message,
+                "message": "You've seen all available targeting combinations for this audience. Try a different audience description or schedule a consultation with ernesto@artemistargeting.com for custom targeting strategies.",
+                "targeting_pathways": [],
+                "count": 0,
+            }
+
         pathways = []
         for match in matches:
             pathways.append({
