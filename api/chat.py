@@ -17,7 +17,7 @@ class handler(BaseHTTPRequestHandler):
         result = {
             "status": "✅ LIVE",
             "message": "Artemis Targeting MCP Server - ENHANCED WITH DESCRIPTIONS",
-            "version": "4.1.0-CONFUSION-DETECTION-FIXED",
+            "version": "4.2.0-PERSISTENT-MEMORY-FIXED",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
@@ -67,7 +67,7 @@ class handler(BaseHTTPRequestHandler):
                     "targeting_pathways": [],
                     "conversation_action": "descriptions_enabled",
                 }
-                print(f"🔍 ENABLING DESCRIPTIONS")
+                print(f"🔍 ENABLING DESCRIPTIONS for key: {conversation_key}")
                 self._send_json_response(response)
                 return
 
@@ -189,51 +189,31 @@ class handler(BaseHTTPRequestHandler):
     def _create_conversation_key(self, original_message):
         """Create a stable key for conversation tracking based on core intent"""
 
-        # **CRITICAL FIX: Don't process confusion/description requests**
+        # **CRITICAL FIX: Use single session key for all targeting-related conversations**
         message_lower = original_message.lower().strip()
 
-        # If it's a confusion/description request, create simple key
-        if self._detect_confusion_or_description_request(
-            message_lower
-        ) or self._detect_description_request(message_lower):
-            print(f"🔑 CONVERSATION KEY: confusion_request (special handling)")
-            return "confusion_request"
-
-        # Remove "more options" noise and create key from core intent
-        core_words = []
-        noise_words = [
-            "more",
-            "additional",
-            "other",
-            "else",
-            "different",
-            "show",
-            "give",
-            "find",
-            "me",
-            "options",
-            "pathways",
-            "combinations",
-            "great",
-            "have",
-            "any",
+        # For all targeting, confusion, and description requests - use same key
+        targeting_indicators = [
             "target",
-            "targeting",
+            "gym",
+            "fitness",
+            "health",
+            "what do these mean",
+            "confused",
+            "clarify",
+            "explain",
+            "yes",
+            "no",
+            "more",
         ]
 
-        words = re.findall(r"\b\w+\b", original_message.lower())
-        for word in words:
-            if word not in noise_words and len(word) > 2:
-                core_words.append(word)
+        if any(indicator in message_lower for indicator in targeting_indicators):
+            print(f"🔑 CONVERSATION KEY: targeting_session (unified session)")
+            return "targeting_session"
 
-        # Create stable hash from core intent
-        core_intent = " ".join(sorted(core_words))
-        if not core_intent:  # Fallback for very short messages
-            core_intent = original_message.lower().strip()
-
-        key = hashlib.md5(core_intent.encode()).hexdigest()[:12]
-        print(f"🔑 CONVERSATION KEY: {key} (from: '{core_intent}')")
-        return key
+        # For step completion and other non-targeting messages
+        print(f"🔑 CONVERSATION KEY: general_session")
+        return "general_session"
 
     def _get_conversation_state(self, conversation_key):
         """Get or create conversation state"""
@@ -661,6 +641,10 @@ class handler(BaseHTTPRequestHandler):
         conversation_key = self._create_conversation_key(user_message)
         conv_state = self._get_conversation_state(conversation_key)
         show_descriptions = conv_state.get("show_descriptions", False)
+
+        print(
+            f"🔍 FORMATTING RESPONSE: show_descriptions={show_descriptions} for key={conversation_key}"
+        )
 
         pathways = []
         for match in matches:
