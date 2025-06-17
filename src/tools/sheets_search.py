@@ -142,7 +142,7 @@ def is_automotive_query(query):
 
 
 def calculate_enhanced_similarity(query_text, row_data):
-    """FIXED version with CORRECT category mappings from actual Google Sheet"""
+    """ENHANCED version with STRONGER fitness targeting"""
 
     category = str(row_data.get("Category", "")).strip().lower()
     grouping = str(row_data.get("Grouping", "")).strip().lower()
@@ -183,33 +183,59 @@ def calculate_enhanced_similarity(query_text, row_data):
 
     score = 0.0
 
-    # FIXED SEMANTIC MAPPINGS - Using ACTUAL Google Sheet categories
+    # ENHANCED SEMANTIC MAPPINGS - Much stronger fitness targeting
     enhanced_mappings = {
-        # Health & Wellness - CORRECTED to actual categories
+        # FITNESS - SUPERCHARGED targeting
+        "fitness": [
+            "purchase predictors",  # Gyms & Fitness Clubs - HIGHEST PRIORITY
+            "household behaviors & interests",  # Health & Fitness, Sports & Recreation
+            "lifestyle propensities",  # Fitness Enthusiast
+            "household indicators",  # Interest in fitness
+            "household demographics",  # Fitness Moms/Dads
+        ],
+        "gym": [
+            "purchase predictors",  # Gyms & Fitness Clubs - PRIORITY 1
+            "household behaviors & interests",  # Sports & Recreation → Personal Fitness
+            "lifestyle propensities",  # Fitness Enthusiast
+        ],
+        "gyms": [
+            "purchase predictors",  # Gyms & Fitness Clubs
+            "household behaviors & interests",
+            "lifestyle propensities",
+        ],
+        "enthusiasts": [
+            "lifestyle propensities",  # Activity & Interests, Fitness Enthusiast
+            "household behaviors & interests",
+            "purchase predictors",
+        ],
+        "exercise": [
+            "household behaviors & interests",  # Sports & Recreation → Personal Fitness
+            "lifestyle propensities",  # Fitness Enthusiast
+            "purchase predictors",  # Gyms & Fitness Clubs
+        ],
+        "workout": [
+            "purchase predictors",  # Gyms & Fitness Clubs
+            "household behaviors & interests",  # Sports & Recreation
+            "lifestyle propensities",
+        ],
+        "supplements": [
+            "purchase predictors",  # Health/supplement stores
+            "household behaviors & interests",  # Health & Natural Foods
+            "lifestyle propensities",
+        ],
+        # Health & Wellness - ENHANCED
         "health": [
             "household behaviors & interests",  # Main health category
+            "purchase predictors",  # Health-related stores
             "household indicators",  # Contains health interests
             "lifestyle propensities",  # Fitness enthusiast
             "consumer behavior",  # Healthcare workers
         ],
         "wellness": [
             "household behaviors & interests",  # Health & fitness grouping
+            "lifestyle propensities",  # Wellness activities
             "household indicators",  # Healthy living interest
             "lifestyle models",  # Consumer mentality
-        ],
-        "fitness": [
-            "household behaviors & interests",  # Health & Fitness, Sports & Recreation
-            "household demographics",  # Fitness Moms/Dads
-            "household indicators",  # Interest in fitness
-            "lifestyle propensities",  # Fitness Enthusiast
-        ],
-        "gym": [
-            "household behaviors & interests",  # Sports & Recreation → Personal Fitness
-            "lifestyle propensities",  # Fitness Enthusiast
-        ],
-        "exercise": [
-            "household behaviors & interests",  # Sports & Recreation → Personal Fitness
-            "lifestyle propensities",  # Fitness Enthusiast
         ],
         "organic": [
             "consumer models",  # Consumer Personalities → Organic and natural
@@ -220,7 +246,7 @@ def calculate_enhanced_similarity(query_text, row_data):
             "consumer models",  # Consumer Personalities → Organic and natural
             "household behaviors & interests",  # Health & Natural Foods, Natural Health Remedies
         ],
-        # Mental wellness & mindfulness - CORRECTED
+        # Mental wellness & mindfulness
         "mental": [
             "household behaviors & interests",  # Reading → Medical/Health
             "lifestyle models",  # Consumer Mentality categories
@@ -237,10 +263,10 @@ def calculate_enhanced_similarity(query_text, row_data):
             "household behaviors & interests",  # Social Causes → Health
             "lifestyle models",  # Consumer Mentality
         ],
-        # Financial - CORRECTED
+        # Financial
         "financial": [
-            "consumer financial insights",  # Main financial category
-            "financial",  # Direct financial category
+            "consumer financial insights",
+            "financial",
         ],
         "investment": [
             "consumer financial insights",
@@ -250,24 +276,24 @@ def calculate_enhanced_similarity(query_text, row_data):
             "consumer financial insights",
             "financial",
         ],
-        # Shopping & Retail - CORRECTED
+        # Shopping & Retail
         "shopping": [
-            "purchase predictors",  # Retail Shoppers
-            "household behaviors & interests",  # Shopping grouping
-            "online behavior models",  # Online behavior
+            "purchase predictors",
+            "household behaviors & interests",
+            "online behavior models",
         ],
         "retail": [
-            "purchase predictors",  # Retail Shoppers
-            "household behaviors & interests",  # Shopping
+            "purchase predictors",
+            "household behaviors & interests",
         ],
-        # Home & Property - CORRECTED
+        # Home & Property
         "home": [
-            "home property",  # Main home category
-            "mortgage/home purchase",  # Home purchase
+            "home property",
+            "mortgage/home purchase",
         ],
         "improvement": [
             "home property",
-            "household behaviors & interests",  # DIY interests
+            "household behaviors & interests",
         ],
         "renovation": [
             "home property",
@@ -275,53 +301,71 @@ def calculate_enhanced_similarity(query_text, row_data):
         ],
     }
 
-    # PRIORITY 1: Enhanced category matching (150+ points for exact matches)
+    # PRIORITY 1: SUPER BOOSTED category matching for fitness
     query_words = query_lower.split()
     for word in query_words:
         if word in enhanced_mappings:
             target_categories = enhanced_mappings[word]
             for target_cat in target_categories:
                 if target_cat in category:
-                    score += 150.0  # HIGHEST score for category match
+                    # MEGA BOOST for fitness-related terms
+                    if word in ["fitness", "gym", "gyms", "exercise", "workout", "enthusiasts"]:
+                        score += 300.0  # MASSIVE fitness boost
+                    else:
+                        score += 150.0  # Standard category match
                     break
 
-    # PRIORITY 2: Grouping and demographic matching (100+ points)
+    # PRIORITY 2: Grouping and demographic matching with fitness boost
     for word in query_words:
         if len(word) > 3:
-            # Check for grouping matches
-            if word in grouping:
+            # SUPER BOOST for fitness in grouping/demographic
+            fitness_terms = ["fitness", "gym", "exercise", "workout", "health"]
+            if any(fitness_term in grouping for fitness_term in fitness_terms):
+                score += 200.0  # Huge fitness grouping boost
+            elif any(fitness_term in demographic for fitness_term in fitness_terms):
+                score += 180.0  # Big fitness demographic boost
+            elif word in grouping:
                 score += 100.0
-            # Check for demographic matches
-            if word in demographic:
+            elif word in demographic:
                 score += 80.0
 
-    # PRIORITY 3: Description matching (50+ points)
+    # PRIORITY 3: Description matching with fitness emphasis
     for word in query_words:
         if len(word) > 3:
             if word in description:
-                score += 50.0
+                # Extra boost for fitness-related descriptions
+                if any(
+                    fit_word in description
+                    for fit_word in ["gym", "fitness", "exercise", "workout"]
+                ):
+                    score += 100.0  # Big fitness description boost
+                else:
+                    score += 50.0
 
-    # PRIORITY 4: Direct text matching (30+ points)
+    # PRIORITY 4: Direct text matching
     if query_lower in combined_text:
         score += 30.0
 
-    # PRIORITY 5: Individual word matching (10+ points each)
+    # PRIORITY 5: Individual word matching with fitness boost
     for word in query_words:
         if len(word) > 3:
             if word in combined_text:
-                score += 10.0
+                if word in ["fitness", "gym", "gyms", "exercise", "workout"]:
+                    score += 25.0  # Fitness word boost
+                else:
+                    score += 10.0
 
-    # CATEGORY DIVERSITY BOOSTING - Reduce Household Demographics dominance
+    # ENHANCED CATEGORY DIVERSITY BOOSTING
     if "household demographics" in category:
-        score *= 0.5  # 50% reduction for household demographics
-    elif "household behaviors & interests" in category:
-        score *= 1.8  # 80% boost for behaviors & interests (health/fitness)
-    elif "lifestyle propensities" in category:
-        score *= 1.7  # 70% boost for lifestyle propensities
-    elif "consumer models" in category:
-        score *= 1.6  # 60% boost for consumer models
+        score *= 0.3  # MAJOR reduction for household demographics
     elif "purchase predictors" in category:
-        score *= 1.5  # 50% boost for purchase predictors
+        score *= 2.0  # MAJOR boost for purchase predictors (has gym data)
+    elif "household behaviors & interests" in category:
+        score *= 1.8  # Big boost for behaviors & interests
+    elif "lifestyle propensities" in category:
+        score *= 1.7  # Good boost for lifestyle propensities
+    elif "consumer models" in category:
+        score *= 1.6  # Moderate boost for consumer models
 
     return score
 
@@ -368,7 +412,7 @@ def search_in_data(query, sheets_data):
     # Sort by score (highest first)
     all_matches.sort(key=lambda x: x["score"], reverse=True)
 
-    # FINAL FILTER: Remove duplicates and ensure category diversity
+    # ENHANCED FILTER: Remove duplicates and ensure category diversity
     final_matches = []
     seen_pathways = set()
     category_counts = {}
@@ -387,24 +431,26 @@ def search_in_data(query, sheets_data):
         if not wants_auto and is_automotive_content(pathway.lower()):
             continue
 
-        # Limit per category for diversity (max 2 per category for better selection)
+        # IMPROVED: Allow more fitness-related entries per category
         category_count = category_counts.get(category, 0)
-        if category_count >= 2:
+        # Allow up to 4 entries for Purchase Predictors (has gym data), 2 for others
+        max_per_category = 4 if "purchase predictors" in category.lower() else 2
+        if category_count >= max_per_category:
             continue
 
         final_matches.append(match)
         seen_pathways.add(pathway)
         category_counts[category] = category_count + 1
 
-        # Stop at 15 total matches for better selection
-        if len(final_matches) >= 15:
+        # Stop at 20 total matches for better selection
+        if len(final_matches) >= 20:
             break
 
     return final_matches
 
 
 def format_response_hardcoded(matches, query, request_more=False):
-    """HARDCODED response formatting with strict requirements"""
+    """ENHANCED response formatting with proper more options handling"""
 
     if not matches:
         # Provide helpful suggestions based on query type
@@ -501,22 +547,20 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
             "query": query,
         }
 
-    # HARDCODED REQUIREMENT: Always provide minimum 2 combinations
-    if request_more and len(matches) > 2:
-        # If user requests more, provide next 2 combinations
-        selected_matches = matches[2:4] if len(matches) > 3 else matches[2:3]
-        if len(selected_matches) < 2 and len(matches) > 4:
-            selected_matches.extend(matches[4:6])
+    # ENHANCED: Proper "more options" handling to prevent duplicates
+    if request_more and len(matches) > 3:
+        # For "more options" requests, return next 3 combinations (4-6)
+        selected_matches = matches[3:6] if len(matches) > 5 else matches[3:]
+        # If not enough new ones, take from end of list
+        if len(selected_matches) < 3 and len(matches) > 6:
+            selected_matches.extend(matches[6:9])
     else:
-        # Always provide first 2 combinations minimum
-        selected_matches = matches[:2]
-        # If we have more than 2, add up to 3 total for initial response
-        if len(matches) > 2:
-            selected_matches.extend(matches[2:3])
+        # Initial request: return first 3 combinations
+        selected_matches = matches[:3]
 
-    # HARDCODED: Ensure minimum 2 combinations always
-    if len(selected_matches) < 2 and len(matches) >= 2:
-        selected_matches = matches[:2]
+    # Ensure we have at least 3 results if available
+    if len(selected_matches) < 3 and len(matches) >= 3:
+        selected_matches = matches[:3]
 
     # Build response with strict taxonomic format
     pathways = []
@@ -608,7 +652,7 @@ class SheetsSearcher:
         """Get and cache sheets data with rate limiting"""
         current_time = time.time()
 
-        # EXTENDED CACHE: Keep data for 30 minutes (was 5 minutes)
+        # EXTENDED CACHE: Keep data for 30 minutes
         if (
             self.sheets_data_cache
             and self.cache_timestamp
@@ -681,25 +725,29 @@ class SheetsSearcher:
             return []
 
     def search_demographics(self, query, request_more=False):
-        """HARDCODED search function with FIXED semantic matching"""
+        """ENHANCED search function with proper more options handling"""
         start_time = time.time()
 
         try:
-            # Check for "more" request indicator
-            if "more" in query.lower() and "option" in query.lower():
+            # ENHANCED: Better detection of "more options" requests
+            more_indicators = ["more", "additional", "other", "different", "else"]
+            if any(indicator in query.lower() for indicator in more_indicators) and any(
+                word in query.lower() for word in ["option", "combination", "targeting", "pathway"]
+            ):
                 request_more = True
-                # Extract original query (remove "more options" type phrases)
-                original_query = (
-                    query.lower()
-                    .replace("more", "")
-                    .replace("option", "")
-                    .replace("additional", "")
-                    .strip()
-                )
+                # Keep original query for context
+                original_query = query
             else:
                 original_query = query
 
-            cache_key = original_query.lower().strip()
+            # Create cache key based on core query terms (not "more" indicators)
+            core_query = original_query.lower()
+            for indicator in more_indicators + ["option", "combination", "targeting", "pathway"]:
+                core_query = core_query.replace(indicator, "").strip()
+
+            cache_key = core_query.lower().strip()
+
+            # For "more" requests, don't use cache - always get fresh results
             if cache_key in SEARCH_CACHE and not request_more:
                 cached_result = SEARCH_CACHE[cache_key].copy()
                 cached_result["cache_hit"] = True
@@ -713,13 +761,15 @@ class SheetsSearcher:
                     "error": "No data available",
                 }
 
-            matches = search_in_data(original_query, sheets_data)
+            # Use core query for searching, not the "more options" request
+            search_query = core_query if request_more else original_query
+            matches = search_in_data(search_query, sheets_data)
 
-            # If no matches, try individual words as fallback (still with automotive filtering)
+            # If no matches, try individual words as fallback
             if not matches:
                 words = [
                     word
-                    for word in original_query.lower().split()
+                    for word in search_query.lower().split()
                     if len(word) > 3
                     and word
                     not in ["the", "and", "for", "with", "like", "want", "need", "that", "this"]
@@ -730,22 +780,23 @@ class SheetsSearcher:
                         matches = fallback_matches
                         break
 
-            # HARDCODED: Use hardcoded response formatter
-            formatted_response = format_response_hardcoded(matches, original_query, request_more)
+            # Use enhanced response formatter
+            formatted_response = format_response_hardcoded(matches, search_query, request_more)
 
             result = {
                 "success": formatted_response["success"],
                 "response": formatted_response["response"],
                 "pathways": formatted_response.get("pathways", []),
-                "query": original_query,
+                "query": search_query,
                 "matches_found": len(matches),
                 "total_available": formatted_response.get("total_available", 0),
-                "search_method": "fixed_semantic_matching",
+                "search_method": "enhanced_fitness_targeting",
                 "response_time": round(time.time() - start_time, 2),
                 "cache_hit": False,
+                "request_more": request_more,
             }
 
-            # Cache successful results
+            # Cache successful results (but not "more" requests)
             if result["success"] and len(SEARCH_CACHE) < CACHE_SIZE_LIMIT and not request_more:
                 SEARCH_CACHE[cache_key] = result.copy()
 
@@ -766,6 +817,5 @@ sheets_searcher = SheetsSearcher()
 
 
 def search_sheets_data(query):
-    """Main function called by MCP server with FIXED semantic matching"""
+    """Main function called by MCP server with ENHANCED fitness targeting"""
     return sheets_searcher.search_demographics(query)
-# Force deploy Mon Jun 16 22:27:18 UTC 2025
