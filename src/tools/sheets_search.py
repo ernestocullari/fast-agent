@@ -2,11 +2,13 @@ import os
 import json
 import time
 import difflib
+import hashlib
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 
 # Performance optimizations
 SEARCH_CACHE = {}
+CONVERSATION_STATE = {}  # New: Track conversation history
 CACHE_SIZE_LIMIT = 100
 TIMEOUT_SECONDS = 45
 
@@ -141,8 +143,102 @@ def is_automotive_query(query):
     return any(term in query_lower for term in explicit_auto_terms)
 
 
+def detect_more_options_request(query):
+    """SMART detection of 'more options' requests using natural language patterns"""
+    query_lower = query.lower().strip()
+
+    # Primary indicators for "more options"
+    more_indicators = [
+        "more",
+        "additional",
+        "other",
+        "else",
+        "different",
+        "another",
+        "alternative",
+        "what else",
+        "show me",
+        "give me",
+        "find me",
+        "any other",
+        "something else",
+    ]
+
+    # Context indicators that confirm it's about targeting
+    context_indicators = [
+        "option",
+        "combination",
+        "targeting",
+        "pathway",
+        "choice",
+        "suggestion",
+        "alternative",
+        "demographic",
+        "audience",
+        "segment",
+        "group",
+        "category",
+    ]
+
+    # Question patterns that indicate more options
+    question_patterns = [
+        "what else do you have",
+        "what other",
+        "show me more",
+        "give me more",
+        "any other",
+        "more options",
+        "additional options",
+        "other combinations",
+        "different targeting",
+        "something else",
+        "alternatives",
+    ]
+
+    # Check for direct question patterns first
+    for pattern in question_patterns:
+        if pattern in query_lower:
+            return True
+
+    # Check for indicator combinations
+    has_more_indicator = any(indicator in query_lower for indicator in more_indicators)
+    has_context_indicator = any(context in query_lower for context in context_indicators)
+
+    return has_more_indicator and has_context_indicator
+
+
+def create_session_key(query):
+    """Create a session key based on core query terms (ignoring 'more' indicators)"""
+    # Remove common more-options words to get core intent
+    stop_words = [
+        "more",
+        "additional",
+        "other",
+        "else",
+        "different",
+        "another",
+        "alternative",
+        "what",
+        "show",
+        "give",
+        "find",
+        "me",
+        "options",
+        "combinations",
+        "targeting",
+    ]
+
+    # Extract core terms
+    words = query.lower().split()
+    core_words = [word for word in words if word not in stop_words and len(word) > 2]
+
+    # Create consistent key from core terms
+    core_query = " ".join(sorted(core_words))
+    return hashlib.md5(core_query.encode()).hexdigest()[:16]
+
+
 def calculate_enhanced_similarity(query_text, row_data):
-    """ENHANCED version with STRONGER fitness targeting"""
+    """SUPERCHARGED version with maximum fitness targeting power"""
 
     category = str(row_data.get("Category", "")).strip().lower()
     grouping = str(row_data.get("Grouping", "")).strip().lower()
@@ -183,18 +279,18 @@ def calculate_enhanced_similarity(query_text, row_data):
 
     score = 0.0
 
-    # ENHANCED SEMANTIC MAPPINGS - Much stronger fitness targeting
+    # SUPERCHARGED SEMANTIC MAPPINGS - Maximum fitness emphasis
     enhanced_mappings = {
-        # FITNESS - SUPERCHARGED targeting
+        # FITNESS - ULTIMATE targeting power
         "fitness": [
-            "purchase predictors",  # Gyms & Fitness Clubs - HIGHEST PRIORITY
+            "purchase predictors",  # Gyms & Fitness Clubs - SUPREME PRIORITY
             "household behaviors & interests",  # Health & Fitness, Sports & Recreation
             "lifestyle propensities",  # Fitness Enthusiast
             "household indicators",  # Interest in fitness
             "household demographics",  # Fitness Moms/Dads
         ],
         "gym": [
-            "purchase predictors",  # Gyms & Fitness Clubs - PRIORITY 1
+            "purchase predictors",  # Gyms & Fitness Clubs - MAXIMUM PRIORITY
             "household behaviors & interests",  # Sports & Recreation → Personal Fitness
             "lifestyle propensities",  # Fitness Enthusiast
         ],
@@ -223,7 +319,7 @@ def calculate_enhanced_similarity(query_text, row_data):
             "household behaviors & interests",  # Health & Natural Foods
             "lifestyle propensities",
         ],
-        # Health & Wellness - ENHANCED
+        # Health & Wellness - AMPLIFIED
         "health": [
             "household behaviors & interests",  # Main health category
             "purchase predictors",  # Health-related stores
@@ -301,33 +397,33 @@ def calculate_enhanced_similarity(query_text, row_data):
         ],
     }
 
-    # PRIORITY 1: SUPER BOOSTED category matching for fitness
+    # PRIORITY 1: MAXIMUM BOOSTED category matching for fitness
     query_words = query_lower.split()
     for word in query_words:
         if word in enhanced_mappings:
             target_categories = enhanced_mappings[word]
             for target_cat in target_categories:
                 if target_cat in category:
-                    # MEGA BOOST for fitness-related terms
+                    # SUPREME BOOST for fitness-related terms
                     if word in ["fitness", "gym", "gyms", "exercise", "workout", "enthusiasts"]:
-                        score += 300.0  # MASSIVE fitness boost
+                        score += 500.0  # ULTIMATE fitness boost
                     else:
-                        score += 150.0  # Standard category match
+                        score += 200.0  # Enhanced category match
                     break
 
-    # PRIORITY 2: Grouping and demographic matching with fitness boost
+    # PRIORITY 2: Grouping and demographic matching with MASSIVE fitness boost
     for word in query_words:
         if len(word) > 3:
-            # SUPER BOOST for fitness in grouping/demographic
+            # ULTIMATE BOOST for fitness in grouping/demographic
             fitness_terms = ["fitness", "gym", "exercise", "workout", "health"]
             if any(fitness_term in grouping for fitness_term in fitness_terms):
-                score += 200.0  # Huge fitness grouping boost
+                score += 400.0  # Massive fitness grouping boost
             elif any(fitness_term in demographic for fitness_term in fitness_terms):
-                score += 180.0  # Big fitness demographic boost
+                score += 350.0  # Huge fitness demographic boost
             elif word in grouping:
-                score += 100.0
+                score += 150.0
             elif word in demographic:
-                score += 80.0
+                score += 120.0
 
     # PRIORITY 3: Description matching with fitness emphasis
     for word in query_words:
@@ -338,34 +434,34 @@ def calculate_enhanced_similarity(query_text, row_data):
                     fit_word in description
                     for fit_word in ["gym", "fitness", "exercise", "workout"]
                 ):
-                    score += 100.0  # Big fitness description boost
+                    score += 200.0  # Massive fitness description boost
                 else:
-                    score += 50.0
+                    score += 75.0
 
     # PRIORITY 4: Direct text matching
     if query_lower in combined_text:
-        score += 30.0
+        score += 50.0
 
     # PRIORITY 5: Individual word matching with fitness boost
     for word in query_words:
         if len(word) > 3:
             if word in combined_text:
                 if word in ["fitness", "gym", "gyms", "exercise", "workout"]:
-                    score += 25.0  # Fitness word boost
+                    score += 40.0  # Big fitness word boost
                 else:
-                    score += 10.0
+                    score += 15.0
 
-    # ENHANCED CATEGORY DIVERSITY BOOSTING
+    # ULTIMATE CATEGORY DIVERSITY BOOSTING
     if "household demographics" in category:
-        score *= 0.3  # MAJOR reduction for household demographics
+        score *= 0.2  # MASSIVE reduction for household demographics (80% cut)
     elif "purchase predictors" in category:
-        score *= 2.0  # MAJOR boost for purchase predictors (has gym data)
+        score *= 2.5  # ULTIMATE boost for purchase predictors (has gym data)
     elif "household behaviors & interests" in category:
-        score *= 1.8  # Big boost for behaviors & interests
+        score *= 2.2  # MAJOR boost for behaviors & interests
     elif "lifestyle propensities" in category:
-        score *= 1.7  # Good boost for lifestyle propensities
+        score *= 2.0  # BIG boost for lifestyle propensities
     elif "consumer models" in category:
-        score *= 1.6  # Moderate boost for consumer models
+        score *= 1.8  # Good boost for consumer models
 
     return score
 
@@ -376,8 +472,8 @@ def search_in_data(query, sheets_data):
     all_matches = []
     wants_auto = is_automotive_query(query)
 
-    # Process up to 1000 rows for better coverage
-    max_rows = min(len(sheets_data), 1000)
+    # Process up to 1500 rows for maximum coverage
+    max_rows = min(len(sheets_data), 1500)
 
     for row in sheets_data[:max_rows]:
         # FIRST FILTER: Check each field individually for automotive content
@@ -431,10 +527,10 @@ def search_in_data(query, sheets_data):
         if not wants_auto and is_automotive_content(pathway.lower()):
             continue
 
-        # IMPROVED: Allow more fitness-related entries per category
+        # ENHANCED: Allow more entries for high-value categories
         category_count = category_counts.get(category, 0)
-        # Allow up to 4 entries for Purchase Predictors (has gym data), 2 for others
-        max_per_category = 4 if "purchase predictors" in category.lower() else 2
+        # Allow up to 6 entries for Purchase Predictors, 3 for others
+        max_per_category = 6 if "purchase predictors" in category.lower() else 3
         if category_count >= max_per_category:
             continue
 
@@ -442,15 +538,15 @@ def search_in_data(query, sheets_data):
         seen_pathways.add(pathway)
         category_counts[category] = category_count + 1
 
-        # Stop at 20 total matches for better selection
-        if len(final_matches) >= 20:
+        # Stop at 25 total matches for excellent selection
+        if len(final_matches) >= 25:
             break
 
     return final_matches
 
 
-def format_response_hardcoded(matches, query, request_more=False):
-    """ENHANCED response formatting with proper more options handling"""
+def format_response_smart(matches, query, session_key, is_more_request=False):
+    """SMART response formatting with intelligent more options handling"""
 
     if not matches:
         # Provide helpful suggestions based on query type
@@ -547,20 +643,45 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
             "query": query,
         }
 
-    # ENHANCED: Proper "more options" handling to prevent duplicates
-    if request_more and len(matches) > 3:
-        # For "more options" requests, return next 3 combinations (4-6)
-        selected_matches = matches[3:6] if len(matches) > 5 else matches[3:]
-        # If not enough new ones, take from end of list
-        if len(selected_matches) < 3 and len(matches) > 6:
-            selected_matches.extend(matches[6:9])
-    else:
-        # Initial request: return first 3 combinations
-        selected_matches = matches[:3]
+    # INTELLIGENT RESULT SELECTION based on conversation state
+    global CONVERSATION_STATE
 
-    # Ensure we have at least 3 results if available
-    if len(selected_matches) < 3 and len(matches) >= 3:
-        selected_matches = matches[:3]
+    if session_key not in CONVERSATION_STATE:
+        CONVERSATION_STATE[session_key] = {
+            "shown_pathways": set(),
+            "request_count": 0,
+            "last_query_time": time.time(),
+        }
+
+    session_data = CONVERSATION_STATE[session_key]
+    session_data["request_count"] += 1
+    session_data["last_query_time"] = time.time()
+
+    # Filter out previously shown pathways
+    available_matches = []
+    for match in matches:
+        row = match["row"]
+        pathway = (
+            f"{row.get('Category', '')} → {row.get('Grouping', '')} → {row.get('Demographic', '')}"
+        )
+        if pathway not in session_data["shown_pathways"]:
+            available_matches.append(match)
+
+    # If we've run out of new matches, reset and use all matches
+    if len(available_matches) < 3 and len(matches) >= 3:
+        session_data["shown_pathways"].clear()
+        available_matches = matches
+
+    # Select 3 new pathways
+    selected_matches = available_matches[:3]
+
+    # Track what we're showing
+    for match in selected_matches:
+        row = match["row"]
+        pathway = (
+            f"{row.get('Category', '')} → {row.get('Grouping', '')} → {row.get('Demographic', '')}"
+        )
+        session_data["shown_pathways"].add(pathway)
 
     # Build response with strict taxonomic format
     pathways = []
@@ -581,7 +702,10 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
         )
 
     # Format response text
-    response_parts = ["Based on your audience description, here are the targeting pathways:\n"]
+    if is_more_request:
+        response_parts = ["Here are additional targeting pathways for your audience:\n"]
+    else:
+        response_parts = ["Based on your audience description, here are the targeting pathways:\n"]
 
     for i, pathway_data in enumerate(pathways, 1):
         response_parts.append(f"**{i}.** {pathway_data['pathway']}")
@@ -589,10 +713,10 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
             response_parts.append(f"   _{pathway_data['description']}_\n")
 
     # Add "more options" info if available
-    remaining_matches = len(matches) - len(selected_matches)
-    if remaining_matches > 0:
+    remaining_new = len(available_matches) - len(selected_matches)
+    if remaining_new > 0:
         response_parts.append(
-            f"**Additional Options Available:** {remaining_matches} more targeting combinations"
+            f"**Additional Options Available:** {remaining_new} more targeting combinations"
         )
         response_parts.append("Ask for 'more targeting options' to see additional pathways.")
 
@@ -606,7 +730,11 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
         "pathways": [p["pathway"] for p in pathways],
         "total_available": len(matches),
         "query": query,
-        "request_more": request_more,
+        "is_more_request": is_more_request,
+        "session_info": {
+            "request_count": session_data["request_count"],
+            "shown_count": len(session_data["shown_pathways"]),
+        },
     }
 
 
@@ -725,32 +853,22 @@ class SheetsSearcher:
             return []
 
     def search_demographics(self, query, request_more=False):
-        """ENHANCED search function with proper more options handling"""
+        """INTELLIGENT search function with smart conversation handling"""
         start_time = time.time()
 
         try:
-            # ENHANCED: Better detection of "more options" requests
-            more_indicators = ["more", "additional", "other", "different", "else"]
-            if any(indicator in query.lower() for indicator in more_indicators) and any(
-                word in query.lower() for word in ["option", "combination", "targeting", "pathway"]
-            ):
-                request_more = True
-                # Keep original query for context
-                original_query = query
-            else:
-                original_query = query
+            # SMART DETECTION: Auto-detect "more options" requests
+            is_more_request = detect_more_options_request(query)
 
-            # Create cache key based on core query terms (not "more" indicators)
-            core_query = original_query.lower()
-            for indicator in more_indicators + ["option", "combination", "targeting", "pathway"]:
-                core_query = core_query.replace(indicator, "").strip()
+            # Create session key for conversation tracking
+            session_key = create_session_key(query)
 
-            cache_key = core_query.lower().strip()
-
-            # For "more" requests, don't use cache - always get fresh results
-            if cache_key in SEARCH_CACHE and not request_more:
+            # Use cache only for initial requests, not for "more" requests
+            cache_key = session_key
+            if cache_key in SEARCH_CACHE and not is_more_request:
                 cached_result = SEARCH_CACHE[cache_key].copy()
                 cached_result["cache_hit"] = True
+                cached_result["session_key"] = session_key
                 return cached_result
 
             sheets_data = self._get_sheets_data()
@@ -761,15 +879,33 @@ class SheetsSearcher:
                     "error": "No data available",
                 }
 
-            # Use core query for searching, not the "more options" request
-            search_query = core_query if request_more else original_query
-            matches = search_in_data(search_query, sheets_data)
+            # Extract core query terms for searching (remove "more options" noise)
+            core_query = query
+            if is_more_request:
+                # Clean query of "more options" language for better searching
+                noise_words = [
+                    "more",
+                    "additional",
+                    "other",
+                    "else",
+                    "different",
+                    "what",
+                    "show",
+                    "give",
+                    "find",
+                ]
+                query_words = query.lower().split()
+                core_words = [word for word in query_words if word not in noise_words]
+                if core_words:
+                    core_query = " ".join(core_words)
+
+            matches = search_in_data(core_query, sheets_data)
 
             # If no matches, try individual words as fallback
             if not matches:
                 words = [
                     word
-                    for word in search_query.lower().split()
+                    for word in core_query.lower().split()
                     if len(word) > 3
                     and word
                     not in ["the", "and", "for", "with", "like", "want", "need", "that", "this"]
@@ -780,24 +916,27 @@ class SheetsSearcher:
                         matches = fallback_matches
                         break
 
-            # Use enhanced response formatter
-            formatted_response = format_response_hardcoded(matches, search_query, request_more)
+            # Use smart response formatter with session tracking
+            formatted_response = format_response_smart(matches, query, session_key, is_more_request)
 
             result = {
                 "success": formatted_response["success"],
                 "response": formatted_response["response"],
                 "pathways": formatted_response.get("pathways", []),
-                "query": search_query,
+                "query": core_query,
+                "original_query": query,
                 "matches_found": len(matches),
                 "total_available": formatted_response.get("total_available", 0),
-                "search_method": "enhanced_fitness_targeting",
+                "search_method": "intelligent_conversation_aware",
                 "response_time": round(time.time() - start_time, 2),
                 "cache_hit": False,
-                "request_more": request_more,
+                "is_more_request": is_more_request,
+                "session_key": session_key,
+                "session_info": formatted_response.get("session_info", {}),
             }
 
-            # Cache successful results (but not "more" requests)
-            if result["success"] and len(SEARCH_CACHE) < CACHE_SIZE_LIMIT and not request_more:
+            # Cache successful initial results (but not "more" requests)
+            if result["success"] and len(SEARCH_CACHE) < CACHE_SIZE_LIMIT and not is_more_request:
                 SEARCH_CACHE[cache_key] = result.copy()
 
             return result
@@ -817,5 +956,20 @@ sheets_searcher = SheetsSearcher()
 
 
 def search_sheets_data(query):
-    """Main function called by MCP server with ENHANCED fitness targeting"""
+    """Main function called by MCP server with INTELLIGENT conversation awareness"""
     return sheets_searcher.search_demographics(query)
+
+
+# Cleanup old conversation states (run periodically)
+def cleanup_old_sessions():
+    """Remove conversation states older than 1 hour"""
+    global CONVERSATION_STATE
+    current_time = time.time()
+    expired_sessions = []
+
+    for session_key, session_data in CONVERSATION_STATE.items():
+        if current_time - session_data.get("last_query_time", 0) > 3600:  # 1 hour
+            expired_sessions.append(session_key)
+
+    for session_key in expired_sessions:
+        del CONVERSATION_STATE[session_key]
