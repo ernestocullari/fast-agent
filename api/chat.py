@@ -40,13 +40,7 @@ class handler(BaseHTTPRequestHandler):
                 self._send_error("No message provided", 400)
                 return
 
-            # Get targeting data from Google Sheets
-            targeting_data = self._get_targeting_data()
-            if not targeting_data:
-                self._send_error("Could not access targeting database", 500)
-                return
-
-            # **NEW: Check for confusion/description requests FIRST**
+            # **PRIORITY 1: Check for confusion/description requests FIRST**
             if self._detect_confusion_or_description_request(user_message.lower()):
                 response = {
                     "status": "success",
@@ -57,7 +51,7 @@ class handler(BaseHTTPRequestHandler):
                 self._send_json_response(response)
                 return
 
-            # **NEW: Check for description confirmation**
+            # **PRIORITY 2: Check for description confirmation**
             if self._detect_description_request(user_message.lower()):
                 # Set description flag in conversation state
                 conversation_key = self._create_conversation_key(user_message)
@@ -71,6 +65,12 @@ class handler(BaseHTTPRequestHandler):
                     "conversation_action": "descriptions_enabled",
                 }
                 self._send_json_response(response)
+                return
+
+            # **PRIORITY 3: Now get targeting data for regular queries**
+            targeting_data = self._get_targeting_data()
+            if not targeting_data:
+                self._send_error("Could not access targeting database", 500)
                 return
 
             # Apply semantic phrase mapping
