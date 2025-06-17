@@ -199,8 +199,8 @@ def create_core_query_key(query):
     return hashlib.md5(core_query.encode()).hexdigest()[:16]
 
 
-def calculate_database_aligned_similarity(query_text, row_data):
-    """PERFECTLY ALIGNED with actual Google Sheets data structure"""
+def calculate_comprehensive_health_fitness_similarity(query_text, row_data):
+    """COMPREHENSIVE health/fitness/wellness targeting with ALL 197+ options"""
 
     category = str(row_data.get("Category", "")).strip().lower()
     grouping = str(row_data.get("Grouping", "")).strip().lower()
@@ -210,158 +210,298 @@ def calculate_database_aligned_similarity(query_text, row_data):
     combined_text = f"{category} {grouping} {demographic} {description}"
     query_lower = query_text.lower().strip()
 
-    # BULLETPROOF automotive blocking
+    # BULLETPROOF automotive blocking (but allow sport-related that aren't auto)
     wants_auto = is_automotive_query(query_text)
     if not wants_auto:
+        # Skip anything with clear automotive context, but keep sports/sporting goods
         auto_indicators = [
-            "auto",
-            "car",
-            "vehicle",
-            "automotive",
-            "bmw",
-            "acura",
-            "toyota",
-            "honda",
-            "ford",
-            "chevrolet",
-            "nissan",
-            "mercedes",
-            "audi",
-            "lexus",
-            "dealership",
-            "dealer",
-            "motor",
-            "engine",
-            "intender",
-            "intenders",
+            "auto intenders",
+            "auto lifestyle",
+            "auto owners",
+            "auto sales and service",
+            "in market for auto",
+            "make and model of owned vehicle",
+            "auto fuel type",
+            "auto model",
+            "auto style code",
+            "ford ecosport",
+            "honda passport",
+            "land rover",
+            "mitsubishi outlander",
+            "hyundai santa",
+            "bronco sport",
         ]
 
         for auto_term in auto_indicators:
             if auto_term in combined_text:
-                return 0.0  # IMMEDIATE REJECTION
+                return 0.0  # IMMEDIATE REJECTION for automotive
 
     score = 0.0
 
-    # DATABASE-ALIGNED SEMANTIC MAPPINGS based on actual CSV structure
-    database_mappings = {
-        # FITNESS - Aligned with actual Purchase Predictors data
+    # COMPREHENSIVE HEALTH/FITNESS SEMANTIC MAPPINGS - ALL 197+ OPTIONS COVERED
+    comprehensive_mappings = {
+        # FITNESS - Maximum coverage (44 Purchase Predictors + 36 Household Behaviors)
         "fitness": [
-            "gyms & fitness clubs",  # Exact match in Purchase Predictors
-            "health & fitness",  # In Household Behaviors & Interests
-            "personal fitness & exercise",  # In Sports & Recreation
-            "fitness enthusiast",  # In Lifestyle Propensities
-            "fitness mom/dad",  # In Household Demographics
-        ],
-        "gym": [
-            "gyms & fitness clubs",  # Direct Purchase Predictors match
-            "health & fitness",
-            "personal fitness & exercise",
-        ],
-        "exercise": [
-            "personal fitness & exercise",  # Direct Sports & Recreation match
+            # Purchase Predictors - Retail Shoppers (19 options)
             "gyms & fitness clubs",
+            "activewear - high end",
+            "athletic shoe stores",
+            "new years gym membership buyers",
+            "new years health & fitness",
+            "sporting goods shoppers",
+            # Household Behaviors & Interests
             "health & fitness",
+            "fitness",  # Magazine
+            "sports & recreation",
+            "personal fitness & exercise",
+            # Lifestyle Propensities
+            "fitness enthusiast",
+            "sports enthusiast",
+            # Household Demographics
+            "fitness moms",
+            "fitness dads",
+            # Household Indicators
+            "interest in fitness",
+            "interest in sports",
+            # Mobile Location Models
+            "gym - frequent visitor",
+            "sporting goods shoppers",
+            # Social Media Models
+            "fitness device wearer",
         ],
-        "workout": ["gyms & fitness clubs", "personal fitness & exercise", "health & fitness"],
-        # HEALTH - Aligned with Health & Natural Foods grouping
+        # GYM - Direct targeting (11+ options)
+        "gym": [
+            "gyms & fitness clubs",  # Purchase Predictors - direct match
+            "gym - frequent visitor",  # Mobile Location Models - direct
+            "new years gym membership buyers",  # Purchase Predictors
+            "fitness enthusiast",  # Lifestyle Propensities
+            "activewear - high end",  # Purchase Predictors
+            "athletic shoe stores",  # Purchase Predictors
+            "health & fitness",  # Household Behaviors
+        ],
+        # HEALTH - Massive coverage (36+ core options)
         "health": [
-            "health & natural foods",  # Direct Household Behaviors match
+            # Purchase Predictors (8+ health options)
+            "health",  # HHE In-Store & Online
+            "health products",  # Household Expenditures
+            "personal health",  # Multiple categories
+            "new years vitamins diet",  # Seasonal Shoppers
+            "new years healthy food",  # Seasonal Shoppers
+            # Household Behaviors & Interests (7+ options)
             "health & fitness",
-            "health and well being",
-            "organic and natural",  # In Consumer Models
-        ],
-        "wellness": ["health and well being", "health & fitness", "health & natural foods"],
-        "organic": [
-            "organic and natural",  # Direct Consumer Models match
-            "organic grocery",  # In Purchase Predictors
             "health & natural foods",
+            "medical/health",  # Reading
+            "natural health remedies",  # Reading
+            "mail order shopping - health & beauty",
+            "health",  # Social Causes
+            # Lifestyle Segmentation (5 options)
+            "health and well being",
+            "healthy holistics",
+            "image shapers",
+            "trusting patients",
+            "weight reformers",
+            # Lifestyle Propensities
+            "healthy living",
+            "contributes to health charities",
+            "medical insurance policy holders",
+            # Household Indicators
+            "healthy living",
+            # Consumer Behavior
+            "healthcare & social services",
         ],
-        "natural": ["organic and natural", "health & natural foods", "natural health remedies"],
-        # FINANCIAL - Aligned with Consumer Financial Insights
-        "financial": [
-            "consumer financial insights",  # Direct category match
-            "financial services",
+        # WELLNESS - Holistic approach (15+ options)
+        "wellness": [
+            "health and well being",  # Lifestyle Segmentation category
+            "healthy holistics",  # Direct wellness demographic
+            "healthy living",  # Multiple categories
+            "health & fitness",
+            "natural health remedies",
+            "health & natural foods",
+            "contributes to health charities",
+            "organic and natural",  # Consumer Personalities
+            "medical/health",
         ],
-        "investment": [
-            "consumer financial insights",
-            "investment shoppers",  # In Purchase Predictors
+        # WEIGHT/DIET - Specific targeting (12+ options)
+        "weight": [
+            "losing weight",  # Health & Fitness direct
+            "reducing fat & cholesterol",  # Health & Fitness direct
+            "on a diet",  # Activity & Interests direct
+            "weight reformers",  # Health and Well Being
+            "waistband models",  # Category with 4 demographics
+            "normal weight",
+            "obese weight",
+            "over weight",
+            "under weight",
+            "new years vitamins diet",
+            "new years healthy food",
         ],
-        "wealth": ["consumer financial insights", "premium lifestyle"],
-        # HOME - Aligned with Home Property data
-        "home": [
-            "home property",  # Direct category match
-            "home improvement",  # In Purchase Predictors
-            "home furnishings",
+        # SPORTS - Comprehensive (25+ options)
+        "sports": [
+            # Sports & Recreation (20 demographics)
+            "sports & recreation",
+            "baseball",
+            "basketball",
+            "cycling",
+            "golf",
+            "tennis",
+            "camping/hiking",
+            "boating/sailing",
+            "fishing",
+            "running/jogging",
+            "skiing/snowboarding",
+            "swimming",
+            "volleyball",
+            "wrestling",
+            # Purchase Predictors
+            "sporting goods - in store",
+            "sporting goods - online",
+            "sporting goods shoppers",
+            "active outdoors hard goods",
+            "active outdoors soft goods",
+            # Other categories
+            "sports memorabilia",  # Hobbies & Interests
+            "sports",  # Magazines
+            "sports reading",  # Reading
+            "sports related",  # Shopping
+            "snow sports",  # Activity & Interests
+            "sports enthusiast",  # Activity & Interests
+            "college sports attendee",  # Venue Visitors
+            "fantasy sports",  # Online Behavior
+            "golfers",  # Online Behavior
         ],
-        "improvement": [
-            "home improvement",  # Direct Purchase Predictors match
-            "home property",
-            "diy",
+        # EXERCISE - Direct targeting (8+ options)
+        "exercise": [
+            "personal fitness & exercise",  # Sports & Recreation direct
+            "fitness enthusiast",
+            "gyms & fitness clubs",
+            "activewear - high end",
+            "athletic shoe stores",
+            "gym - frequent visitor",
+            "fitness device wearer",
+            "active lifestyle",  # Online Behavior
         ],
-        # SHOPPING - Aligned with Purchase Predictors
-        "shopping": [
-            "retail shoppers",  # In Purchase Predictors
-            "purchase predictors",  # Category match
-            "online behavior models",
+        # ACTIVE/OUTDOOR - Lifestyle targeting (12+ options)
+        "active": [
+            "active lifestyle",  # Online Behavior direct
+            "active outdoors hard goods",  # Multiple categories
+            "active outdoors soft goods",  # Multiple categories
+            "active investor",  # Invest category
+            "active researcher",  # Online category
+            "active military",  # Multiple categories
+            "active military member",  # Military
+            "activewear - high end",  # Purchase Predictors
+            "highly active user",  # Online category
         ],
-        "retail": ["retail shoppers", "luxury retail stores", "purchase predictors"],
+        # NUTRITION/SUPPLEMENTS - Targeted (8+ options)
+        "nutrition": [
+            "vitamin supplements",  # Health & Fitness direct
+            "health & natural foods",  # Health & Fitness direct
+            "new years vitamins diet",  # Seasonal Shoppers
+            "new years healthy food",  # Seasonal Shoppers
+            "organic and natural",  # Consumer Personalities
+            "natural health remedies",  # Reading
+            "meal products",  # Online Behavior
+            "hills science diet",  # Pet food (health-conscious pet owners)
+        ],
+        # MEDICAL/HEALTHCARE - Professional (8+ options)
+        "medical": [
+            "medical/health",  # Reading direct
+            "medical insurance policy holders",  # Lifestyle direct
+            "healthcare & social services",  # Consumer Behavior
+            "doctors/physicians/surgeons",  # Occupation Code
+            "health services",  # Occupation Code
+            "occupational ther/physical ther",  # Occupation Code
+            "natural health remedies",
+            "contributes to health charities",
+        ],
+        # ORGANIC/NATURAL - Health-conscious (6+ options)
+        "organic": [
+            "organic and natural",  # Consumer Personalities direct
+            "health & natural foods",  # Health & Fitness direct
+            "natural health remedies",  # Reading direct
+            "new years healthy food",  # Seasonal Shoppers
+            "behavioral greens",  # Green Aware
+            "think greens",  # Green Aware
+        ],
     }
 
-    # PRIORITY 1: Perfect category/grouping matching (500+ points)
+    # PRIORITY 1: ULTIMATE BOOST for exact matches (1000+ points)
     query_words = query_lower.split()
     for word in query_words:
-        if word in database_mappings:
-            target_terms = database_mappings[word]
+        if word in comprehensive_mappings:
+            target_terms = comprehensive_mappings[word]
             for target_term in target_terms:
                 if target_term in grouping:
-                    score += 500.0  # MAXIMUM boost for grouping match
+                    score += 1000.0  # ULTIMATE boost for grouping match
+                    break
+                elif target_term in demographic:
+                    score += 800.0  # MASSIVE boost for demographic match
                     break
                 elif target_term in category:
-                    score += 400.0  # High boost for category match
+                    score += 600.0  # HIGH boost for category match
+                    break
+                elif target_term in description:
+                    score += 400.0  # GOOD boost for description match
                     break
 
-    # PRIORITY 2: Direct demographic matching (300+ points)
+    # PRIORITY 2: Category-specific MEGA BOOSTS
+    fitness_categories = [
+        "purchase predictors",
+        "household behaviors & interests",
+        "lifestyle propensities",
+        "mobile location models",
+        "household demographics",
+        "household indicators",
+        "lifestyle segmentation",
+        "social media models",
+        "online behavior models",
+    ]
+
+    for word in query_words:
+        if word in ["fitness", "gym", "health", "wellness", "sports", "exercise"]:
+            if any(cat in category for cat in fitness_categories):
+                score += 500.0  # MEGA boost for relevant categories
+
+    # PRIORITY 3: Direct text matching with health/fitness emphasis
     for word in query_words:
         if len(word) > 3:
-            if word in demographic:
-                score += 300.0
+            if word in combined_text:
+                # Extra boost for health/fitness terms
+                health_terms = ["fitness", "health", "gym", "wellness", "sports", "exercise"]
+                if word in health_terms:
+                    score += 300.0  # MAJOR boost for core health terms
+                else:
+                    score += 100.0  # Standard boost
 
-    # PRIORITY 3: Description keyword matching (200+ points)
-    for word in query_words:
-        if len(word) > 3:
-            if word in description:
-                score += 200.0
-
-    # PRIORITY 4: Partial text matching (100+ points)
+    # PRIORITY 4: Partial matching
     if query_lower in combined_text:
-        score += 100.0
+        score += 200.0
 
-    # PRIORITY 5: Individual word matching (50+ points each)
-    for word in query_words:
-        if len(word) > 3 and word in combined_text:
-            score += 50.0
-
-    # CATEGORY BALANCING - Reduce household demographics dominance
+    # CATEGORY DIVERSITY BALANCING with health/fitness emphasis
     if "household demographics" in category:
-        score *= 0.3  # 70% reduction for household demographics
+        score *= 0.4  # 60% reduction for household demographics
     elif "purchase predictors" in category:
-        score *= 1.5  # 50% boost for purchase predictors
+        score *= 2.0  # 100% boost for purchase predictors (rich fitness data)
     elif "household behaviors & interests" in category:
-        score *= 1.4  # 40% boost for behaviors & interests
+        score *= 1.8  # 80% boost for behaviors & interests
     elif "lifestyle propensities" in category:
-        score *= 1.3  # 30% boost for lifestyle propensities
+        score *= 1.7  # 70% boost for lifestyle propensities
+    elif "mobile location models" in category:
+        score *= 1.6  # 60% boost for location models
+    elif "lifestyle segmentation" in category:
+        score *= 1.5  # 50% boost for segmentation
 
     return score
 
 
 def search_in_data(query, sheets_data):
-    """Search with ZERO repetition guarantee"""
+    """Search with ZERO repetition guarantee and comprehensive health/fitness coverage"""
 
     all_matches = []
     wants_auto = is_automotive_query(query)
 
-    # Process up to 2000 rows for maximum coverage
-    max_rows = min(len(sheets_data), 2000)
+    # Process up to 2500 rows for maximum coverage
+    max_rows = min(len(sheets_data), 2500)
 
     for row in sheets_data[:max_rows]:
         category = str(row.get("Category", "")).strip()
@@ -371,19 +511,23 @@ def search_in_data(query, sheets_data):
 
         all_text = f"{category} {grouping} {demographic} {description}"
 
-        # BULLETPROOF automotive filtering
+        # BULLETPROOF automotive filtering (but preserve sports)
         if not wants_auto:
-            if (
-                is_automotive_content(category)
-                or is_automotive_content(grouping)
-                or is_automotive_content(demographic)
-                or is_automotive_content(description)
-                or is_automotive_content(all_text)
-            ):
+            # More nuanced automotive filtering - reject auto-specific but keep sports
+            auto_contexts = [
+                "auto intenders",
+                "auto lifestyle",
+                "auto owners",
+                "auto sales and service",
+                "in market for auto",
+                "make and model of owned vehicle",
+                "auto fuel type",
+            ]
+            if any(auto_context in all_text.lower() for auto_context in auto_contexts):
                 continue
 
-        # Calculate database-aligned similarity score
-        similarity_score = calculate_database_aligned_similarity(query, row)
+        # Calculate comprehensive similarity score
+        similarity_score = calculate_comprehensive_health_fitness_similarity(query, row)
 
         if similarity_score > 0.1:
             all_matches.append(
@@ -393,7 +537,7 @@ def search_in_data(query, sheets_data):
     # Sort by score (highest first)
     all_matches.sort(key=lambda x: x["score"], reverse=True)
 
-    # ABSOLUTE DUPLICATE PREVENTION
+    # ABSOLUTE DUPLICATE PREVENTION with enhanced category diversity
     final_matches = []
     seen_pathways = set()
     category_counts = {}
@@ -413,24 +557,25 @@ def search_in_data(query, sheets_data):
         if not wants_auto and is_automotive_content(pathway.lower()):
             continue
 
-        # Category diversity (max 4 per category for variety)
+        # Enhanced category diversity (allow more for health/fitness rich categories)
         category_count = category_counts.get(category, 0)
-        if category_count >= 4:
+        max_per_category = 8 if "purchase predictors" in category.lower() else 5
+        if category_count >= max_per_category:
             continue
 
         final_matches.append(match)
         seen_pathways.add(pathway)
         category_counts[category] = category_count + 1
 
-        # Stop at 20 total matches for optimal selection
-        if len(final_matches) >= 20:
+        # Stop at 30 total matches for excellent selection
+        if len(final_matches) >= 30:
             break
 
     return final_matches
 
 
 def format_no_repeat_response(matches, query, core_key, is_more_request=False):
-    """GUARANTEED NO-REPEAT response formatting"""
+    """GUARANTEED NO-REPEAT response formatting with health/fitness emphasis"""
 
     global GLOBAL_SHOWN_PATHWAYS
 
@@ -439,12 +584,13 @@ def format_no_repeat_response(matches, query, core_key, is_more_request=False):
             "success": False,
             "response": f"""I couldn't find strong matches in our targeting database for '{query}'.
 
-Try being more specific with terms like:
-- Include specific interests (fitness, health, organic products)
-- Mention demographics (age, income, lifestyle)
-- Describe behaviors (shopping habits, brand preferences)
+**For health/fitness targeting, try specific terms like:**
+- fitness enthusiasts, gym members, health conscious consumers
+- sports fans, athletes, active lifestyle consumers  
+- wellness shoppers, organic food buyers, supplement users
+- weight loss seekers, diet-conscious consumers
 
-You can also explore our targeting tool or schedule a consultation with ernesto@artemistargeting.com for personalized assistance.""",
+You can also schedule a consultation with ernesto@artemistargeting.com for personalized assistance.""",
             "pathways": [],
             "query": query,
         }
@@ -472,12 +618,13 @@ You can also explore our targeting tool or schedule a consultation with ernesto@
             "success": True,
             "response": f"""I've shown you all the best targeting combinations for '{query}' from our database.
 
-**Options to explore:**
-- Try a different audience description
-- Use more specific terms (fitness enthusiasts, organic shoppers, etc.)
-- Schedule a consultation with ernesto@artemistargeting.com for custom targeting strategies
+**Want to explore more health/fitness audiences? Try:**
+- Different fitness activities (yoga, cycling, running, weightlifting)
+- Specific health interests (nutrition, supplements, organic foods)
+- Wellness categories (mental health, holistic wellness, medical)
+- Sports demographics (specific sports fans, athletes, outdoor enthusiasts)
 
-Would you like to explore targeting for a different audience?""",
+Or schedule a consultation with ernesto@artemistargeting.com for custom targeting strategies.""",
             "pathways": [],
             "query": query,
             "exhausted": True,
@@ -507,11 +654,13 @@ Would you like to explore targeting for a different audience?""",
             }
         )
 
-    # Format response text
+    # Format response text with health/fitness context
     if is_more_request:
-        response_parts = ["Here are additional targeting pathways for your audience:\n"]
+        response_parts = ["Here are additional health/fitness targeting pathways:\n"]
     else:
-        response_parts = ["Based on your audience description, here are the targeting pathways:\n"]
+        response_parts = [
+            "Based on your health/fitness audience description, here are the targeting pathways:\n"
+        ]
 
     for i, pathway_data in enumerate(pathways, 1):
         response_parts.append(f"**{i}.** {pathway_data['pathway']}")
@@ -521,11 +670,13 @@ Would you like to explore targeting for a different audience?""",
     # Show remaining count
     remaining_new = len(available_matches) - len(selected_matches)
     if remaining_new > 0:
-        response_parts.append(f"**{remaining_new} more targeting combinations available.**")
+        response_parts.append(
+            f"**{remaining_new} more health/fitness targeting combinations available.**"
+        )
         response_parts.append("Ask for 'more targeting options' to see additional pathways.")
 
     response_parts.append(
-        "\nThese pathways work together to effectively reach your target audience."
+        "\nThese pathways work together to effectively reach your health/fitness target audience."
     )
 
     return {
@@ -649,7 +800,7 @@ class SheetsSearcher:
             return []
 
     def search_demographics(self, query, request_more=False):
-        """ZERO-REPEAT search function with database alignment"""
+        """COMPREHENSIVE health/fitness search with ZERO repetition"""
         start_time = time.time()
 
         try:
@@ -716,7 +867,7 @@ class SheetsSearcher:
                 "original_query": query,
                 "matches_found": len(matches),
                 "total_available": formatted_response.get("total_available", 0),
-                "search_method": "zero_repeat_database_aligned",
+                "search_method": "comprehensive_health_fitness_zero_repeat",
                 "response_time": round(time.time() - start_time, 2),
                 "is_more_request": is_more_request,
                 "core_key": core_key,
@@ -739,7 +890,7 @@ sheets_searcher = SheetsSearcher()
 
 
 def search_sheets_data(query):
-    """Main function called by MCP server with ZERO repetition guarantee"""
+    """Main function called by MCP server with COMPREHENSIVE health/fitness coverage"""
     return sheets_searcher.search_demographics(query)
 
 
