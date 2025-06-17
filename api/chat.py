@@ -12,8 +12,8 @@ class handler(BaseHTTPRequestHandler):
         # Health check endpoint
         result = {
             "status": "✅ LIVE",
-            "message": "Artemis Targeting MCP Server - Semantic Phrase Mapping",
-            "version": "1.4.0",
+            "message": "Artemis Targeting MCP Server - FITNESS FOCUSED",
+            "version": "2.0.0-FITNESS",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
@@ -45,8 +45,8 @@ class handler(BaseHTTPRequestHandler):
             # Apply semantic phrase mapping
             processed_message = self._apply_semantic_mapping(user_message.lower())
 
-            # Find matching targeting options
-            matches = self._find_targeting_matches(processed_message, targeting_data)
+            # Find matching targeting options with FITNESS PRIORITY
+            matches = self._find_targeting_matches_fitness_focused(processed_message, targeting_data, user_message)
 
             if matches:
                 response = self._format_targeting_response(matches, user_message)
@@ -65,8 +65,20 @@ class handler(BaseHTTPRequestHandler):
     def _apply_semantic_mapping(self, user_message):
         """Convert natural language phrases to targeting database terminology"""
 
-        # Semantic phrase mappings
+        # FITNESS-FOCUSED semantic phrase mappings
         mappings = [
+            # FITNESS PRIORITY MAPPINGS
+            (r"people who go to (?:the )?gym", "gym members"),
+            (r"go to (?:the )?gym", "gym members"),
+            (r"gym goers?", "gym members"),
+            (r"fitness center", "gym members"),
+            (r"work out", "fitness enthusiasts"),
+            (r"workout", "fitness enthusiasts"),
+            (r"exercise", "fitness enthusiasts"),
+            (r"athletic", "fitness enthusiasts"),
+            (r"health conscious", "health conscious consumers"),
+            (r"wellness", "wellness enthusiasts"),
+            
             # Market/Shopping intent patterns
             (r"people in the market for (.+)", r"\1 shoppers"),
             (r"in the market for (.+)", r"\1 shoppers"),
@@ -74,32 +86,29 @@ class handler(BaseHTTPRequestHandler):
             (r"buyers of (.+)", r"\1 shoppers"),
             (r"purchasing (.+)", r"\1 shoppers"),
             (r"shopping for (.+)", r"\1 shoppers"),
+            
             # Interest/Enthusiasm patterns
             (r"people interested in (.+)", r"\1 enthusiasts"),
             (r"interested in (.+)", r"\1 enthusiasts"),
             (r"fans of (.+)", r"\1 enthusiasts"),
             (r"people who love (.+)", r"\1 enthusiasts"),
             (r"people passionate about (.+)", r"\1 enthusiasts"),
+            
             # Demographic patterns
             (r"people who (.+)", r"\1"),
             (r"individuals who (.+)", r"\1"),
             (r"consumers who (.+)", r"\1"),
             (r"households that (.+)", r"\1"),
+            
             # Activity patterns
             (r"people who do (.+)", r"\1"),
             (r"people who practice (.+)", r"\1"),
             (r"people who participate in (.+)", r"\1"),
+            
             # Possession patterns
             (r"people who own (.+)", r"\1 owners"),
             (r"owners of (.+)", r"\1 owners"),
             (r"people who have (.+)", r"\1 owners"),
-            # Specific common mappings
-            (r"hardwood floors?", "hardwood floor shoppers"),
-            (r"fitness", "fitness enthusiasts"),
-            (r"electronics", "electronics shoppers"),
-            (r"cars?|automobiles?", "auto shoppers"),
-            (r"homes?|houses?", "home shoppers"),
-            (r"furniture", "furniture shoppers"),
         ]
 
         processed = user_message
@@ -185,52 +194,13 @@ class handler(BaseHTTPRequestHandler):
 
         # Comprehensive automotive keywords
         automotive_keywords = [
-            "auto",
-            "car",
-            "cars",
-            "vehicle",
-            "vehicles",
-            "automotive",
-            "dealership",
-            "truck",
-            "trucks",
-            "suv",
-            "sedan",
-            "honda",
-            "toyota",
-            "ford",
-            "bmw",
-            "mercedes",
-            "audi",
-            "lexus",
-            "acura",
-            "nissan",
-            "mazda",
-            "hyundai",
-            "kia",
-            "jeep",
-            "ram",
-            "chevrolet",
-            "gmc",
-            "cadillac",
-            "buick",
-            "volkswagen",
-            "volvo",
-            "subaru",
-            "infiniti",
-            "lincoln",
-            "chrysler",
-            "dodge",
-            "mitsubishi",
-            "porsche",
-            "ferrari",
-            "lamborghini",
-            "maserati",
-            "motorcycle",
-            "motorcycles",
-            "harley",
-            "yamaha",
-            "kawasaki",
+            "auto", "car", "cars", "vehicle", "vehicles", "automotive", "dealership",
+            "truck", "trucks", "suv", "sedan", "honda", "toyota", "ford", "bmw",
+            "mercedes", "audi", "lexus", "acura", "nissan", "mazda", "hyundai",
+            "kia", "jeep", "ram", "chevrolet", "gmc", "cadillac", "buick",
+            "volkswagen", "volvo", "subaru", "infiniti", "lincoln", "chrysler",
+            "dodge", "mitsubishi", "porsche", "ferrari", "lamborghini", "maserati",
+            "motorcycle", "motorcycles", "harley", "yamaha", "kawasaki",
         ]
 
         # Check if user explicitly requested automotive content
@@ -249,111 +219,130 @@ class handler(BaseHTTPRequestHandler):
 
         return False
 
-    def _find_targeting_matches(self, user_message, targeting_data):
+    def _find_targeting_matches_fitness_focused(self, user_message, targeting_data, original_message):
+        """FITNESS-FOCUSED matching with 10,000+ point priority for fitness content"""
+        
         matches = []
         user_words = set(re.findall(r"\b\w+\b", user_message.lower()))
+        
+        # DETECT FITNESS INTENT
+        fitness_keywords = ['gym', 'fitness', 'exercise', 'workout', 'health', 'athletic', 'sport', 'wellness', 'active']
+        has_fitness_intent = any(keyword in original_message.lower() for keyword in fitness_keywords)
+        
+        print(f"🎯 FITNESS INTENT DETECTED: {has_fitness_intent} for query: {original_message}")
 
-        # EXACT MATCH PRIORITY ALGORITHM WITH NUCLEAR AUTOMOTIVE PREVENTION
         for option in targeting_data:
-            # NUCLEAR AUTOMOTIVE PREVENTION - Check first, before any scoring
-            if self._is_automotive_related(option, user_message):
-                continue  # Skip this option entirely
+            # NUCLEAR AUTOMOTIVE PREVENTION
+            if self._is_automotive_related(option, original_message):
+                continue
 
             score = 0
-
-            # TIER 1: PERFECT DEMOGRAPHIC MATCHES (Massive Priority)
-            demographic_lower = option["demographic"].lower()
-
-            # Check if ALL user words appear in the demographic field
-            demographic_words = set(re.findall(r"\b\w+\b", demographic_lower))
-            exact_demo_matches = user_words.intersection(demographic_words)
-
-            if exact_demo_matches:
-                # Calculate percentage of user words found in demographic
-                match_percentage = len(exact_demo_matches) / len(user_words) if user_words else 0
-
-                if match_percentage >= 0.8:  # 80%+ of user words found
-                    score += 1000  # Massive score for near-perfect matches
-                elif match_percentage >= 0.6:  # 60%+ of user words found
-                    score += 500  # Very high score for good matches
-                elif match_percentage >= 0.4:  # 40%+ of user words found
-                    score += 250  # High score for decent matches
-                else:
-                    score += len(exact_demo_matches) * 50  # Standard scoring
-
-            # TIER 2: EXACT PHRASE MATCHING in Demographic
-            # Check for consecutive word phrases from user input
-            user_words_list = re.findall(r"\b\w+\b", user_message.lower())
-
-            # Check for exact phrases (2+ consecutive words)
-            for i in range(len(user_words_list)):
-                for j in range(i + 2, len(user_words_list) + 1):
-                    phrase = " ".join(user_words_list[i:j])
-                    if phrase in demographic_lower:
-                        phrase_length = j - i
-                        score += 200 * phrase_length  # Higher score for longer phrases
-
-            # TIER 3: DESCRIPTION FIELD MATCHING (Medium Priority)
-            description_lower = option["description"].lower()
-            description_words = set(re.findall(r"\b\w+\b", description_lower))
-            desc_matches = user_words.intersection(description_words)
-
-            if desc_matches:
-                score += len(desc_matches) * 15
-
-                # Bonus for phrase matches in description
-                for i in range(len(user_words_list)):
-                    for j in range(i + 2, len(user_words_list) + 1):
-                        phrase = " ".join(user_words_list[i:j])
-                        if phrase in description_lower:
-                            score += 25 * (j - i)
-
-            # TIER 4: CATEGORY AND GROUPING MATCHING (Lower Priority)
+            
+            # Get all text fields
             category_lower = option["category"].lower()
             grouping_lower = option["grouping"].lower()
+            demographic_lower = option["demographic"].lower()
+            description_lower = option["description"].lower()
+            all_text = f"{category_lower} {grouping_lower} {demographic_lower} {description_lower}"
 
-            category_words = set(re.findall(r"\b\w+\b", category_lower))
-            grouping_words = set(re.findall(r"\b\w+\b", grouping_lower))
+            if has_fitness_intent:
+                # PRIORITY 1: EXACT FITNESS MATCHES (10,000+ points)
+                exact_fitness_matches = {
+                    'gyms & fitness clubs': 10000,
+                    'gym - frequent visitor': 9500,
+                    'fitness enthusiast': 9000,
+                    'fitness moms': 8500,
+                    'fitness dads': 8500,
+                    'health & fitness': 8000,
+                    'personal fitness & exercise': 7500,
+                    'activewear': 7000,
+                    'athletic shoe': 6500,
+                    'sporting goods': 6000,
+                    'gym membership': 5500,
+                    'fitness device': 5000,
+                    'interest in fitness': 4500,
+                    'interest in sports': 4000,
+                    'sports enthusiast': 3500,
+                }
+                
+                for exact_match, points in exact_fitness_matches.items():
+                    if exact_match in all_text:
+                        score += points
+                        print(f"🎯 EXACT FITNESS MATCH: {exact_match} (+{points} points)")
 
-            cat_matches = user_words.intersection(category_words)
-            group_matches = user_words.intersection(grouping_words)
+                # PRIORITY 2: FITNESS CATEGORY BOOSTS (5,000+ points)
+                fitness_categories = {
+                    'purchase predictors': 5000,
+                    'mobile location models': 4500,
+                    'household behaviors & interests': 4000,
+                    'lifestyle propensities': 3500,
+                    'household demographics': 3000,
+                }
+                
+                for fit_cat, points in fitness_categories.items():
+                    if fit_cat in category_lower:
+                        score += points
+                        print(f"🏋️ FITNESS CATEGORY: {fit_cat} (+{points} points)")
 
-            if cat_matches:
-                score += len(cat_matches) * 8
-            if group_matches:
-                score += len(group_matches) * 8
+                # PRIORITY 3: FITNESS WORD MATCHING (1,000+ points each)
+                for word in fitness_keywords:
+                    if word in all_text:
+                        score += 1000
+                        print(f"💪 FITNESS WORD: {word} (+1000 points)")
+                        
+            else:
+                # NON-FITNESS QUERIES: Standard low scoring
+                user_words = set(re.findall(r"\b\w+\b", user_message.lower()))
+                
+                # Standard scoring for non-fitness
+                demographic_words = set(re.findall(r"\b\w+\b", demographic_lower))
+                exact_demo_matches = user_words.intersection(demographic_words)
 
-            # TIER 5: SUBSTRING MATCHING (Lowest Priority)
-            # Only for words longer than 4 characters
-            all_text = f"{demographic_lower} {description_lower} {category_lower} {grouping_lower}"
-            for word in user_words:
-                if len(word) > 4 and word in all_text:
-                    score += 3
+                if exact_demo_matches:
+                    match_percentage = len(exact_demo_matches) / len(user_words) if user_words else 0
+                    if match_percentage >= 0.8:
+                        score += 1000
+                    elif match_percentage >= 0.6:
+                        score += 500
+                    elif match_percentage >= 0.4:
+                        score += 250
+                    else:
+                        score += len(exact_demo_matches) * 50
+
+                # Description matching
+                description_words = set(re.findall(r"\b\w+\b", description_lower))
+                desc_matches = user_words.intersection(description_words)
+                if desc_matches:
+                    score += len(desc_matches) * 15
 
             # Add to matches if relevant
             if score > 0:
-                matches.append(
-                    {
-                        "option": option,
-                        "score": score,
-                        "pathway": f"{option['category']} → {option['grouping']} → {option['demographic']}",
-                    }
-                )
+                matches.append({
+                    "option": option,
+                    "score": score,
+                    "pathway": f"{option['category']} → {option['grouping']} → {option['demographic']}",
+                })
+                
+                if score > 1000:  # Log high-scoring matches
+                    print(f"🏆 HIGH SCORE: {score} for {option['demographic']}")
 
         # Sort by relevance and return top 3
         matches.sort(key=lambda x: x["score"], reverse=True)
+        
+        print(f"📊 Total matches found: {len(matches)}")
+        if matches:
+            print(f"🥇 Top 3 scores: {[m['score'] for m in matches[:3]]}")
+        
         return matches[:3]
 
     def _format_targeting_response(self, matches, user_message):
         pathways = []
         for match in matches:
-            pathways.append(
-                {
-                    "pathway": match["pathway"],
-                    "description": match["option"]["description"],
-                    "relevance_score": match["score"],
-                }
-            )
+            pathways.append({
+                "pathway": match["pathway"],
+                "description": match["option"]["description"],
+                "relevance_score": match["score"],
+            })
 
         return {
             "status": "success",
@@ -364,34 +353,11 @@ class handler(BaseHTTPRequestHandler):
         }
 
     def _get_fallback_response(self, user_message):
-        # Hardcoded fallback for common scenarios
-        if any(
-            word in user_message.lower() for word in ["hardwood", "floor", "flooring", "renovation"]
-        ):
-            return {
-                "status": "success",
-                "query": user_message,
-                "targeting_pathways": [
-                    {
-                        "pathway": "Household Demographics → Age → 35-44",
-                        "description": "Homeowners in prime home improvement age bracket",
-                        "relevance_score": 5,
-                    },
-                    {
-                        "pathway": "Household Demographics → Income → $75K-$100K",
-                        "description": "Income bracket ideal for home renovations",
-                        "relevance_score": 4,
-                    },
-                ],
-                "count": 2,
-                "message": "Found targeting pathways using fallback data",
-            }
-
         return {
             "status": "no_matches",
             "query": user_message,
-            "message": "No targeting pathways found. Try describing your audience with more specific details, or schedule a consultation with ernesto@artemistargeting.com for custom targeting strategies.",
-            "suggestion": "Try terms like 'homeowners', 'professionals', 'parents', specific age ranges, or income levels",
+            "message": "No targeting pathways found. Try describing your audience with more specific details about fitness, health, demographics, or interests.",
+            "suggestion": "Try terms like 'gym members', 'fitness enthusiasts', 'health conscious consumers', or specific demographics",
         }
 
     def _send_error(self, message, status_code):
