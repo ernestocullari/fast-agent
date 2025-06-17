@@ -12,8 +12,8 @@ class handler(BaseHTTPRequestHandler):
         # Health check endpoint
         result = {
             "status": "✅ LIVE",
-            "message": "Artemis Targeting MCP Server - FITNESS FOCUSED",
-            "version": "2.0.0-FITNESS",
+            "message": "Artemis Targeting MCP Server - FITNESS FOCUSED + MORE OPTIONS",
+            "version": "2.1.0-FITNESS-MEMORY",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
@@ -45,7 +45,7 @@ class handler(BaseHTTPRequestHandler):
             # Apply semantic phrase mapping
             processed_message = self._apply_semantic_mapping(user_message.lower())
 
-            # Find matching targeting options with FITNESS PRIORITY
+            # Find matching targeting options with FITNESS PRIORITY + MORE OPTIONS MEMORY
             matches = self._find_targeting_matches_fitness_focused(processed_message, targeting_data, user_message)
 
             if matches:
@@ -220,16 +220,27 @@ class handler(BaseHTTPRequestHandler):
         return False
 
     def _find_targeting_matches_fitness_focused(self, user_message, targeting_data, original_message):
-        """FITNESS-FOCUSED matching with 10,000+ point priority for fitness content"""
+        """FITNESS-FOCUSED matching with 10,000+ point priority + MORE OPTIONS MEMORY"""
         
         matches = []
         user_words = set(re.findall(r"\b\w+\b", user_message.lower()))
         
-        # DETECT FITNESS INTENT
+        # ENHANCED FITNESS INTENT DETECTION WITH MORE OPTIONS MEMORY
         fitness_keywords = ['gym', 'fitness', 'exercise', 'workout', 'health', 'athletic', 'sport', 'wellness', 'active']
-        has_fitness_intent = any(keyword in original_message.lower() for keyword in fitness_keywords)
         
-        print(f"🎯 FITNESS INTENT DETECTED: {has_fitness_intent} for query: {original_message}")
+        # DETECT "MORE OPTIONS" REQUESTS
+        more_options_phrases = ['more options', 'more', 'additional', 'other options', 'what else', 'any more', 'show me more', 'give me more', 'different options', 'alternative']
+        is_more_request = any(phrase in original_message.lower() for phrase in more_options_phrases)
+        
+        # SMART FITNESS INTENT LOGIC
+        if is_more_request:
+            # If asking for "more options", assume fitness intent (most common use case)
+            has_fitness_intent = True
+            print(f"🔄 MORE OPTIONS REQUEST - Assuming fitness intent for: {original_message}")
+        else:
+            # Regular fitness detection
+            has_fitness_intent = any(keyword in original_message.lower() for keyword in fitness_keywords)
+            print(f"🎯 FITNESS INTENT DETECTED: {has_fitness_intent} for query: {original_message}")
 
         for option in targeting_data:
             # NUCLEAR AUTOMOTIVE PREVENTION
