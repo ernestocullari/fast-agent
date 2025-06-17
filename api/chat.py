@@ -15,8 +15,8 @@ class handler(BaseHTTPRequestHandler):
         # Health check endpoint
         result = {
             "status": "✅ LIVE",
-            "message": "Artemis Targeting MCP Server - PROGRESSIVE PATHWAYS (1-3, 4-7, 8-11, 12-15)",
-            "version": "3.0.0-PROGRESSIVE",
+            "message": "Artemis Targeting MCP Server - ENHANCED SINGLE WORD MORE",
+            "version": "3.1.0-SINGLE-MORE",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
@@ -253,7 +253,7 @@ class handler(BaseHTTPRequestHandler):
         return False
 
     def _find_targeting_matches_progressive(self, user_message, targeting_data, original_message):
-        """PROGRESSIVE PATHWAY MATCHING: 1-3, 4-7, 8-11, 12-15"""
+        """PROGRESSIVE PATHWAY MATCHING with ENHANCED single word 'more' detection"""
         
         # Create conversation key and get state
         conversation_key = self._create_conversation_key(original_message)
@@ -271,9 +271,22 @@ class handler(BaseHTTPRequestHandler):
         # ENHANCED FITNESS INTENT DETECTION
         fitness_keywords = ['gym', 'fitness', 'exercise', 'workout', 'health', 'athletic', 'sport', 'wellness', 'active']
         
+        # ENHANCED "MORE OPTIONS" DETECTION - INCLUDES SINGLE WORD "MORE"
+        more_options_phrases = [
+            'more options', 'more combinations', 'more pathways', 
+            'additional', 'other options', 'what else', 'any more', 
+            'show me more', 'give me more', 'different options', 'alternative',
+            'more', 'else', 'other'  # Single word triggers
+        ]
+
+        # SPECIAL: If message is very short (1-3 words) and contains "more", treat as more request
+        is_short_more_request = (len(original_message.split()) <= 3 and 'more' in original_message.lower())
+        
         # DETECT "MORE OPTIONS" REQUESTS
-        more_options_phrases = ['more options', 'more', 'additional', 'other options', 'what else', 'any more', 'show me more', 'give me more', 'different options', 'alternative']
-        is_more_request = any(phrase in original_message.lower() for phrase in more_options_phrases)
+        is_more_request = any(phrase in original_message.lower() for phrase in more_options_phrases) or is_short_more_request
+        
+        if is_more_request:
+            print(f"🔄 MORE REQUEST DETECTED: '{original_message}' (Short: {is_short_more_request})")
         
         # SMART FITNESS INTENT LOGIC
         if is_more_request or request_number > 1:
