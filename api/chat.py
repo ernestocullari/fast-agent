@@ -17,7 +17,7 @@ class handler(BaseHTTPRequestHandler):
         result = {
             "status": "✅ LIVE",
             "message": "Artemis Targeting MCP Server - ENHANCED WITH DESCRIPTIONS",
-            "version": "4.0.0-DESCRIPTION-SUPPORT",
+            "version": "4.1.0-CONFUSION-DETECTION-FIXED",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
@@ -40,6 +40,8 @@ class handler(BaseHTTPRequestHandler):
                 self._send_error("No message provided", 400)
                 return
 
+            print(f"🎯 RECEIVED MESSAGE: '{user_message}'")
+
             # **PRIORITY 1: Check for confusion/description requests FIRST**
             if self._detect_confusion_or_description_request(user_message.lower()):
                 response = {
@@ -48,6 +50,7 @@ class handler(BaseHTTPRequestHandler):
                     "targeting_pathways": [],
                     "conversation_action": "offer_descriptions",
                 }
+                print(f"🔍 RETURNING CONFUSION RESPONSE")
                 self._send_json_response(response)
                 return
 
@@ -64,6 +67,7 @@ class handler(BaseHTTPRequestHandler):
                     "targeting_pathways": [],
                     "conversation_action": "descriptions_enabled",
                 }
+                print(f"🔍 ENABLING DESCRIPTIONS")
                 self._send_json_response(response)
                 return
 
@@ -89,6 +93,7 @@ class handler(BaseHTTPRequestHandler):
             self._send_json_response(response)
 
         except Exception as e:
+            print(f"❌ ERROR: {str(e)}")
             self._send_error(f"Server error: {str(e)}", 500)
 
     def _send_json_response(self, response):
@@ -131,7 +136,16 @@ class handler(BaseHTTPRequestHandler):
             "details about",
         ]
 
-        return any(indicator in message_lower for indicator in confusion_indicators)
+        # **DEBUG: Print what we're checking**
+        print(f"🔍 CHECKING CONFUSION for: '{message_lower}'")
+
+        for indicator in confusion_indicators:
+            if indicator in message_lower:
+                print(f"✅ CONFUSION DETECTED: Found '{indicator}' in message")
+                return True
+
+        print(f"❌ NO CONFUSION DETECTED")
+        return False
 
     def _detect_description_request(self, message_lower):
         """Detect if user wants to see descriptions"""
@@ -158,10 +172,33 @@ class handler(BaseHTTPRequestHandler):
         # Check for simple affirmative responses
         simple_yes = message_lower.strip() in ["yes", "y", "sure", "ok", "okay", "yep", "yeah"]
 
-        return simple_yes or any(request in message_lower for request in description_requests)
+        print(f"🔍 CHECKING DESCRIPTION REQUEST for: '{message_lower}'")
+
+        if simple_yes:
+            print(f"✅ DESCRIPTION REQUEST: Simple yes detected")
+            return True
+
+        for request in description_requests:
+            if request in message_lower:
+                print(f"✅ DESCRIPTION REQUEST: Found '{request}' in message")
+                return True
+
+        print(f"❌ NO DESCRIPTION REQUEST DETECTED")
+        return False
 
     def _create_conversation_key(self, original_message):
         """Create a stable key for conversation tracking based on core intent"""
+
+        # **CRITICAL FIX: Don't process confusion/description requests**
+        message_lower = original_message.lower().strip()
+
+        # If it's a confusion/description request, create simple key
+        if self._detect_confusion_or_description_request(
+            message_lower
+        ) or self._detect_description_request(message_lower):
+            print(f"🔑 CONVERSATION KEY: confusion_request (special handling)")
+            return "confusion_request"
+
         # Remove "more options" noise and create key from core intent
         core_words = []
         noise_words = [
@@ -170,7 +207,6 @@ class handler(BaseHTTPRequestHandler):
             "other",
             "else",
             "different",
-            "what",
             "show",
             "give",
             "find",
@@ -179,10 +215,10 @@ class handler(BaseHTTPRequestHandler):
             "pathways",
             "combinations",
             "great",
-            "do",
-            "you",
             "have",
             "any",
+            "target",
+            "targeting",
         ]
 
         words = re.findall(r"\b\w+\b", original_message.lower())
@@ -192,7 +228,12 @@ class handler(BaseHTTPRequestHandler):
 
         # Create stable hash from core intent
         core_intent = " ".join(sorted(core_words))
-        return hashlib.md5(core_intent.encode()).hexdigest()[:12]
+        if not core_intent:  # Fallback for very short messages
+            core_intent = original_message.lower().strip()
+
+        key = hashlib.md5(core_intent.encode()).hexdigest()[:12]
+        print(f"🔑 CONVERSATION KEY: {key} (from: '{core_intent}')")
+        return key
 
     def _get_conversation_state(self, conversation_key):
         """Get or create conversation state"""
