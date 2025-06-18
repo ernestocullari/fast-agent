@@ -16,8 +16,8 @@ class handler(BaseHTTPRequestHandler):
         # Health check endpoint
         result = {
             "status": "✅ LIVE",
-            "message": "Artemis Targeting MCP Server - ENHANCED WITH DESCRIPTIONS & ENUMERATION",
-            "version": "4.3.0-MEMORY-ENUMERATION-FIXED",
+            "message": "Artemis Targeting MCP Server - ENHANCED WITH COMBO-SPECIFIC CLARIFICATION",
+            "version": "4.4.0-COMBO-CLARIFICATION-ENHANCED",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
@@ -42,19 +42,76 @@ class handler(BaseHTTPRequestHandler):
 
             print(f"🎯 RECEIVED MESSAGE: '{user_message}'")
 
-            # **PRIORITY 1: Check for confusion/description requests FIRST**
+            # **PRIORITY 1: Check for specific combo clarification requests**
+            combo_pattern = r"(?:combo|combination|option)\s*(\d+)"
+            combo_match = re.search(combo_pattern, user_message.lower())
+
+            if combo_match:
+                combo_number = int(combo_match.group(1))
+                conversation_key = self._create_conversation_key(user_message)
+                conv_state = self._get_conversation_state(conversation_key)
+
+                # Find the specific combo description
+                delivered_pathways = conv_state.get("delivered_pathways", [])
+                target_combo = None
+
+                for pathway in delivered_pathways:
+                    if pathway.get("combo_number") == combo_number:
+                        target_combo = pathway
+                        break
+
+                if target_combo:
+                    response = {
+                        "status": "success",
+                        "response": f"**Combo {combo_number} Description:**\n\n{target_combo['pathway']}\n\n*{target_combo.get('description', 'No description available')}*\n\nWould you like clarification on any other combos?",
+                        "targeting_pathways": [],
+                        "conversation_action": "specific_combo_clarification",
+                    }
+                    print(f"🔍 RETURNING SPECIFIC COMBO {combo_number} CLARIFICATION")
+                    self._send_json_response(response)
+                    return
+                else:
+                    response = {
+                        "status": "success",
+                        "response": f"I don't see a Combo {combo_number} in our conversation. Which specific combo would you like me to clarify?",
+                        "targeting_pathways": [],
+                        "conversation_action": "combo_not_found",
+                    }
+                    print(f"🔍 COMBO {combo_number} NOT FOUND")
+                    self._send_json_response(response)
+                    return
+
+            # **PRIORITY 2: Check for general confusion/description requests**
             if self._detect_confusion_or_description_request(user_message.lower()):
-                response = {
-                    "status": "success",
-                    "response": "I can see you'd like more clarity about these targeting options. Would you like me to include detailed descriptions for each pathway to help you understand what they mean and their accuracy?",
-                    "targeting_pathways": [],
-                    "conversation_action": "offer_descriptions",
-                }
+                conversation_key = self._create_conversation_key(user_message)
+                conv_state = self._get_conversation_state(conversation_key)
+                delivered_pathways = conv_state.get("delivered_pathways", [])
+
+                if delivered_pathways:
+                    # User has seen combos, ask which ones they want clarified
+                    combo_list = ", ".join(
+                        [f"Combo {p['combo_number']}" for p in delivered_pathways]
+                    )
+                    response = {
+                        "status": "success",
+                        "response": f"I can provide detailed descriptions for any of the targeting pathways you've seen. Which combo would you like me to clarify?\n\nAvailable combos: {combo_list}\n\nJust say something like 'explain combo 1' or 'clarify combo 2'.",
+                        "targeting_pathways": [],
+                        "conversation_action": "ask_which_combo",
+                    }
+                else:
+                    # No combos shown yet, general offer
+                    response = {
+                        "status": "success",
+                        "response": "I can see you'd like more clarity about targeting options. Would you like me to include detailed descriptions with your targeting pathways?",
+                        "targeting_pathways": [],
+                        "conversation_action": "offer_descriptions",
+                    }
+
                 print(f"🔍 RETURNING CONFUSION RESPONSE")
                 self._send_json_response(response)
                 return
 
-            # **PRIORITY 2: Check for description confirmation**
+            # **PRIORITY 3: Check for description confirmation**
             if self._detect_description_request(user_message.lower()):
                 # Set description flag in conversation state
                 conversation_key = self._create_conversation_key(user_message)
@@ -71,7 +128,7 @@ class handler(BaseHTTPRequestHandler):
                 self._send_json_response(response)
                 return
 
-            # **PRIORITY 3: Now get targeting data for regular queries**
+            # **PRIORITY 4: Now get targeting data for regular queries**
             targeting_data = self._get_targeting_data()
             if not targeting_data:
                 self._send_error("Could not access targeting database", 500)
@@ -105,7 +162,17 @@ class handler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(response).encode())
 
     def _detect_confusion_or_description_request(self, message_lower):
-        """Detect if user is confused or wants descriptions"""
+        """Detect if user is confused or wants descriptions for specific combos"""
+
+        # Check for specific combo requests (e.g., "clarify combo 2", "explain combo 1")
+        combo_pattern = r"(?:combo|combination|option)\s*(\d+)"
+        combo_match = re.search(combo_pattern, message_lower)
+
+        if combo_match:
+            combo_number = int(combo_match.group(1))
+            print(f"✅ SPECIFIC COMBO CLARIFICATION: Combo {combo_number}")
+            return True
+
         confusion_indicators = [
             "what does this mean",
             "what is this",
@@ -114,6 +181,10 @@ class handler(BaseHTTPRequestHandler):
             "what are these",
             "explain",
             "what do these mean",
+            "what does combo",
+            "explain combo",
+            "clarify combo",
+            "describe combo",
             "i don't know what",
             "unclear",
             "not sure what",
@@ -134,9 +205,10 @@ class handler(BaseHTTPRequestHandler):
             "what's this",
             "describe",
             "details about",
+            "tell me about",
+            "more info about",
         ]
 
-        # **DEBUG: Print what we're checking**
         print(f"🔍 CHECKING CONFUSION for: '{message_lower}'")
 
         for indicator in confusion_indicators:
@@ -202,6 +274,8 @@ class handler(BaseHTTPRequestHandler):
             "confused",
             "clarify",
             "explain",
+            "combo",
+            "combination",
             "yes",
             "no",
             "more",
