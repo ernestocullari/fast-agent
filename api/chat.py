@@ -305,8 +305,8 @@ class handler(BaseHTTPRequestHandler):
         # Health check endpoint
         result = {
             "status": "✅ LIVE",
-            "message": "Artemis Targeting MCP Server - CLARIFICATION SYSTEM FIXED",
-            "version": "5.2.0-CLARIFICATION-FIXED",
+            "message": "Artemis Targeting MCP Server - REPEAT DETECTION FIXED",
+            "version": "5.3.0-REPEAT-DETECTION-FIXED",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
@@ -442,7 +442,7 @@ class handler(BaseHTTPRequestHandler):
     def _find_targeting_matches_optimized(
         self, user_message: str, targeting_data: List[Dict]
     ) -> List[Dict]:
-        """OPTIMIZED targeting matcher with FIXED conversation state logic"""
+        """OPTIMIZED targeting matcher with FIXED repeat detection logic"""
 
         original_message = user_message
         conversation_key = self._create_conversation_key(original_message)
@@ -481,23 +481,32 @@ class handler(BaseHTTPRequestHandler):
             indicator in user_message.lower() for indicator in new_request_indicators
         )
 
-        # FIXED LOGIC: Reset state for genuinely new requests
+        # FIXED LOGIC: Always treat targeting requests as NEW unless explicitly "more"
         if is_new_request and not (is_more_request or is_short_more):
             logger.info(f"NEW TARGETING REQUEST DETECTED: '{user_message}' - RESETTING STATE")
             conv_state["request_count"] = 0
             conv_state["delivered_pathways"] = []
             conv_state["original_intent"] = original_message
+        elif is_more_request or is_short_more:
+            logger.info(f"MORE REQUEST DETECTED: '{user_message}' - CONTINUING SEQUENCE")
+        else:
+            # For non-targeting requests (like "yes"), don't reset state
+            logger.info(f"NON-TARGETING REQUEST: '{user_message}' - MAINTAINING STATE")
 
         # Store original intent on first request
         if conv_state["request_count"] == 0:
             conv_state["original_intent"] = original_message
 
-        # Increment request count
-        conv_state["request_count"] += 1
-        request_number = conv_state["request_count"]
+        # Only increment request count for targeting requests
+        if is_new_request or is_more_request or is_short_more:
+            conv_state["request_count"] += 1
+            request_number = conv_state["request_count"]
+        else:
+            # For description confirmations, etc., don't increment
+            request_number = max(conv_state["request_count"], 1)
 
         # Use original intent for subsequent requests
-        if request_number > 1:
+        if request_number > 1 and conv_state.get("original_intent"):
             intent = matcher._detect_intent(conv_state.get("original_intent", ""))
 
         logger.info(f"Request #{request_number}, Intent: {intent}, Key: {conversation_key}")
