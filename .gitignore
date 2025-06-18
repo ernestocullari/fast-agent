@@ -11,3 +11,4 @@ __pycache__/
 .vercel
 node_modules/
 coverage/
+service_account_key.pem
