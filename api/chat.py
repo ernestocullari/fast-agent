@@ -16,8 +16,8 @@ class handler(BaseHTTPRequestHandler):
         # Health check endpoint
         result = {
             "status": "✅ LIVE",
-            "message": "Artemis Targeting MCP Server - ENHANCED WITH COMBO-SPECIFIC CLARIFICATION",
-            "version": "4.4.0-COMBO-CLARIFICATION-ENHANCED",
+            "message": "Artemis Targeting MCP Server - ENHANCED WITH COMBO-SPECIFIC CLARIFICATION & FIXED ENUMERATION",
+            "version": "4.5.0-ENUMERATION-FIXED",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
@@ -299,8 +299,8 @@ class handler(BaseHTTPRequestHandler):
                 "last_query": "",
                 "show_descriptions": False,
                 "creation_time": "now",
-                "original_intent": "",  # NEW: Track original user intent
-                "delivered_pathways": [],  # NEW: Track delivered pathways with combo numbers
+                "original_intent": "",  # Track original user intent
+                "delivered_pathways": [],  # Track delivered pathways with combo numbers
             }
 
         return CONVERSATION_STATE[conversation_key]
@@ -497,15 +497,16 @@ class handler(BaseHTTPRequestHandler):
         return False
 
     def _find_targeting_matches_progressive(self, user_message, targeting_data, original_message):
-        """PROGRESSIVE PATHWAY MATCHING with ENHANCED single word 'more' detection"""
+        """PROGRESSIVE PATHWAY MATCHING with FIXED enumeration"""
 
         # Create conversation key and get state
         conversation_key = self._create_conversation_key(original_message)
         conv_state = self._get_conversation_state(conversation_key)
 
-        # Store original intent on first request
+        # Store original intent on first request and RESET delivered pathways
         if conv_state["request_count"] == 0:
             conv_state["original_intent"] = original_message
+            conv_state["delivered_pathways"] = []  # CRITICAL FIX: Reset on new conversation
 
         # Increment request count
         conv_state["request_count"] += 1
@@ -517,6 +518,7 @@ class handler(BaseHTTPRequestHandler):
         print(f"📊 REQUEST NUMBER: {request_number}")
         print(f"🎯 ORIGINAL INTENT: {conv_state['original_intent']}")
         print(f"🔍 SHOW DESCRIPTIONS: {conv_state.get('show_descriptions', False)}")
+        print(f"📊 PREVIOUSLY DELIVERED: {len(conv_state.get('delivered_pathways', []))} combos")
 
         # ENHANCED FITNESS INTENT DETECTION
         fitness_keywords = [
@@ -531,7 +533,7 @@ class handler(BaseHTTPRequestHandler):
             "active",
         ]
 
-        # ENHANCED "MORE OPTIONS" DETECTION - INCLUDES SINGLE WORD "MORE"
+        # ENHANCED "MORE OPTIONS" DETECTION
         more_options_phrases = [
             "more options",
             "more combinations",
@@ -546,7 +548,7 @@ class handler(BaseHTTPRequestHandler):
             "alternative",
             "more",
             "else",
-            "other",  # Single word triggers
+            "other",
         ]
 
         # SPECIAL: If message is very short (1-3 words) and contains "more", treat as more request
@@ -567,11 +569,9 @@ class handler(BaseHTTPRequestHandler):
 
         # SMART FITNESS INTENT LOGIC
         if is_more_request or request_number > 1:
-            # If asking for "more options" or subsequent request, assume fitness intent
             has_fitness_intent = True
             print(f"🔄 SUBSEQUENT REQUEST #{request_number} - Assuming fitness intent")
         else:
-            # Regular fitness detection for first request
             has_fitness_intent = any(
                 keyword in original_message.lower() for keyword in fitness_keywords
             )
@@ -582,13 +582,10 @@ class handler(BaseHTTPRequestHandler):
         user_words = set(re.findall(r"\b\w+\b", user_message.lower()))
 
         for option in targeting_data:
-            # NUCLEAR AUTOMOTIVE PREVENTION
             if self._is_automotive_related(option, original_message):
                 continue
 
             score = 0
-
-            # Get all text fields
             category_lower = option["category"].lower()
             grouping_lower = option["grouping"].lower()
             demographic_lower = option["demographic"].lower()
@@ -596,7 +593,7 @@ class handler(BaseHTTPRequestHandler):
             all_text = f"{category_lower} {grouping_lower} {demographic_lower} {description_lower}"
 
             if has_fitness_intent:
-                # PRIORITY 1: EXACT FITNESS MATCHES (10,000+ points)
+                # FITNESS SCORING
                 exact_fitness_matches = {
                     "gyms & fitness clubs": 10000,
                     "gym - frequent visitor": 9500,
@@ -619,7 +616,6 @@ class handler(BaseHTTPRequestHandler):
                     if exact_match in all_text:
                         score += points
 
-                # PRIORITY 2: FITNESS CATEGORY BOOSTS (5,000+ points)
                 fitness_categories = {
                     "purchase predictors": 5000,
                     "mobile location models": 4500,
@@ -632,13 +628,11 @@ class handler(BaseHTTPRequestHandler):
                     if fit_cat in category_lower:
                         score += points
 
-                # PRIORITY 3: FITNESS WORD MATCHING (1,000+ points each)
                 for word in fitness_keywords:
                     if word in all_text:
                         score += 1000
-
             else:
-                # NON-FITNESS QUERIES: Standard scoring
+                # NON-FITNESS SCORING
                 demographic_words = set(re.findall(r"\b\w+\b", demographic_lower))
                 exact_demo_matches = user_words.intersection(demographic_words)
 
@@ -655,76 +649,74 @@ class handler(BaseHTTPRequestHandler):
                     else:
                         score += len(exact_demo_matches) * 50
 
-                # Description matching
                 description_words = set(re.findall(r"\b\w+\b", description_lower))
                 desc_matches = user_words.intersection(description_words)
                 if desc_matches:
                     score += len(desc_matches) * 15
 
-            # Add to matches if relevant
             if score > 0:
                 match_data = {
                     "option": option,
                     "score": score,
                     "pathway": f"{option['category']} → {option['grouping']} → {option['demographic']}",
+                    "description": option["description"],
                 }
-
-                # **NEW: Include description in match data for later use**
-                match_data["description"] = option["description"]
-
                 all_matches.append(match_data)
 
-        # Sort all matches by score (highest first)
+        # Sort by score
         all_matches.sort(key=lambda x: x["score"], reverse=True)
 
-        # PROGRESSIVE PATHWAY SELECTION WITH COMBO NUMBERING
+        # **FIXED PROGRESSIVE PATHWAY SELECTION**
         if request_number == 1:
-            # First request: Return top 3 (positions 0-2)
             selected_matches = all_matches[0:3]
-            range_text = "1-3"
             start_combo = 1
+            range_text = "1-3"
         elif request_number == 2:
-            # Second request: Return next 4 (positions 3-6)
-            selected_matches = all_matches[3:7]
-            range_text = "4-7"
+            selected_matches = all_matches[3:6]
             start_combo = 4
+            range_text = "4-6"
         elif request_number == 3:
-            # Third request: Return next 4 (positions 7-10)
-            selected_matches = all_matches[7:11]
-            range_text = "8-11"
-            start_combo = 8
+            selected_matches = all_matches[6:9]
+            start_combo = 7
+            range_text = "7-9"
         elif request_number == 4:
-            # Fourth request: Return final 4 (positions 11-14)
-            selected_matches = all_matches[11:15]
-            range_text = "12-15"
-            start_combo = 12
+            selected_matches = all_matches[9:12]
+            start_combo = 10
+            range_text = "10-12"
+        elif request_number == 5:
+            selected_matches = all_matches[12:15]
+            start_combo = 13
+            range_text = "13-15"
         else:
-            # Beyond 4 requests: No more options
             selected_matches = []
-            range_text = "EXHAUSTED"
             start_combo = 0
+            range_text = "EXHAUSTED"
 
-        # **NEW: Add combo numbers to selected matches**
+        # **FIXED: Proper combo numbering without duplicates**
         for i, match in enumerate(selected_matches):
             combo_number = start_combo + i
             match["combo_number"] = combo_number
 
-            # Store in conversation state
-            conv_state["delivered_pathways"].append(
-                {
-                    "combo_number": combo_number,
-                    "pathway": match["pathway"],
-                    "description": match["description"],
-                }
+            # Store in conversation state (avoid duplicates)
+            existing_combo = any(
+                p.get("combo_number") == combo_number for p in conv_state["delivered_pathways"]
             )
 
+            if not existing_combo:
+                conv_state["delivered_pathways"].append(
+                    {
+                        "combo_number": combo_number,
+                        "pathway": match["pathway"],
+                        "description": match["description"],
+                    }
+                )
+
         print(f"🎯 RETURNING PATHWAYS {range_text}: {len(selected_matches)} matches")
+        print(f"📊 TOTAL DELIVERED: {len(conv_state['delivered_pathways'])} combos")
         print(f"📊 TOTAL AVAILABLE: {len(all_matches)} matches")
 
         if selected_matches:
-            scores = [m["score"] for m in selected_matches]
             combos = [m["combo_number"] for m in selected_matches]
-            print(f"🏆 SCORES FOR THIS BATCH: {scores}")
             print(f"🔢 COMBO NUMBERS: {combos}")
 
         return selected_matches
@@ -752,18 +744,18 @@ class handler(BaseHTTPRequestHandler):
         pathways = []
         for match in matches:
             pathway_data = {
-                "combo_number": match["combo_number"],  # NEW: Include combo number
+                "combo_number": match["combo_number"],  # Include combo number
                 "pathway": match["pathway"],
                 "relevance_score": match["score"],
             }
 
-            # **NEW: Include description only if user requested it**
+            # Include description only if user requested it
             if show_descriptions:
                 pathway_data["description"] = match.get("description", "No description available")
 
             pathways.append(pathway_data)
 
-        # **NEW: Create context-aware message**
+        # Create context-aware message
         request_number = conv_state["request_count"]
         if request_number == 1:
             context_message = f"Here are your targeting pathways for {original_intent}:"
@@ -775,12 +767,12 @@ class handler(BaseHTTPRequestHandler):
             "query": user_message,
             "targeting_pathways": pathways,
             "count": len(pathways),
-            "message": context_message,  # NEW: Context-aware message
-            "original_intent": original_intent,  # NEW: Include original intent for reference
-            "request_number": request_number,  # NEW: Include request number
+            "message": context_message,  # Context-aware message
+            "original_intent": original_intent,  # Include original intent for reference
+            "request_number": request_number,  # Include request number
         }
 
-        # **NEW: Add flag to indicate if descriptions are included**
+        # Add flag to indicate if descriptions are included
         if show_descriptions:
             response["includes_descriptions"] = True
 
