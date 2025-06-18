@@ -5,6 +5,7 @@ import traceback
 import re
 import hashlib
 import logging
+import time
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 from googleapiclient.discovery import build
@@ -71,6 +72,20 @@ class TargetingConfig:
         "construction",
     ]
 
+    GAMING_KEYWORDS = [
+        "video games",
+        "gaming",
+        "gamer",
+        "video gamer",
+        "play games",
+        "gaming enthusiast",
+        "console",
+        "pc gaming",
+        "esports",
+        "online gaming",
+        "mobile games",
+    ]
+
     MORE_OPTIONS_PHRASES = [
         "more options",
         "more combinations",
@@ -134,6 +149,24 @@ class TargetingConfig:
             "keyword_bonus": 1500,
             "max_score_cap": 15000,
         },
+        "GAMING": {
+            "exact_matches": {
+                "video gamer": 10000,
+                "gaming": 9000,
+                "video games": 8500,
+                "gamer": 8000,
+                "entertainment": 7000,
+                "games": 6500,
+            },
+            "category_weights": {
+                "lifestyle propensities": 8000,
+                "household behaviors & interests": 7000,
+                "consumer behavior": 6000,
+                "entertainment": 5000,
+            },
+            "keyword_bonus": 1500,
+            "max_score_cap": 15000,
+        },
         "HOME": {
             "exact_matches": {
                 "hardwood flooring": 10000,
@@ -187,6 +220,8 @@ class TargetingMatcher:
             return "FITNESS"
         elif any(keyword in message_lower for keyword in TargetingConfig.FOOD_KEYWORDS):
             return "FOOD"
+        elif any(keyword in message_lower for keyword in TargetingConfig.GAMING_KEYWORDS):
+            return "GAMING"
         elif any(keyword in message_lower for keyword in TargetingConfig.HOME_KEYWORDS):
             return "HOME"
         else:
@@ -213,7 +248,7 @@ class TargetingMatcher:
             intent, TargetingConfig.SCORING_RULES["GENERAL"]
         )
 
-        if intent in ["FITNESS", "FOOD", "HOME"]:
+        if intent in ["FITNESS", "FOOD", "GAMING", "HOME"]:
             # Check exact matches
             exact_matches = scoring_rules.get("exact_matches", {})
             for match_text, points in exact_matches.items():
@@ -270,8 +305,8 @@ class handler(BaseHTTPRequestHandler):
         # Health check endpoint
         result = {
             "status": "✅ LIVE",
-            "message": "Artemis Targeting MCP Server - OPTIMIZED WITH CACHING & NORMALIZED SCORING",
-            "version": "5.0.0-OPTIMIZED",
+            "message": "Artemis Targeting MCP Server - FIXED CONVERSATION STATE",
+            "version": "5.1.0-CONVERSATION-FIXED",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
@@ -399,7 +434,7 @@ class handler(BaseHTTPRequestHandler):
     def _find_targeting_matches_optimized(
         self, user_message: str, targeting_data: List[Dict]
     ) -> List[Dict]:
-        """OPTIMIZED targeting matcher with cleaner combo paging logic"""
+        """OPTIMIZED targeting matcher with FIXED conversation state logic"""
 
         original_message = user_message
         conversation_key = self._create_conversation_key(original_message)
@@ -414,22 +449,33 @@ class handler(BaseHTTPRequestHandler):
         )
         is_short_more = len(user_message.split()) <= 3 and "more" in user_message.lower()
 
-        # Detect new targeting request
-        targeting_keywords = (
-            TargetingConfig.FITNESS_KEYWORDS
-            + TargetingConfig.FOOD_KEYWORDS
-            + TargetingConfig.HOME_KEYWORDS
-            + ["target", "find", "reach"]
-        )
-        is_new_targeting_request = (
-            not (is_more_request or is_short_more)
-            and any(keyword in user_message.lower() for keyword in targeting_keywords)
-            and conv_state["request_count"] == 0
+        # CRITICAL FIX: Detect genuinely NEW targeting requests
+        new_request_indicators = [
+            "target people who",
+            "find people who",
+            "reach people who",
+            "i want to target",
+            "target gym",
+            "target foodies",
+            "target video games",
+            "target gamers",
+            "target shoppers",
+            "target car buyers",
+            "target home",
+            "target hardwood",
+            "people who play",
+            "people who buy",
+            "people interested in",
+        ]
+
+        # Check if this is a new targeting request
+        is_new_request = any(
+            indicator in user_message.lower() for indicator in new_request_indicators
         )
 
-        # Reset for new targeting conversations
-        if is_new_targeting_request:
-            logger.info("New targeting request detected - resetting state")
+        # FIXED LOGIC: Reset state for genuinely new requests
+        if is_new_request and not (is_more_request or is_short_more):
+            logger.info(f"NEW TARGETING REQUEST DETECTED: '{user_message}' - RESETTING STATE")
             conv_state["request_count"] = 0
             conv_state["delivered_pathways"] = []
             conv_state["original_intent"] = original_message
@@ -446,7 +492,10 @@ class handler(BaseHTTPRequestHandler):
         if request_number > 1:
             intent = matcher._detect_intent(conv_state.get("original_intent", ""))
 
-        logger.info(f"Request #{request_number}, Intent: {intent}")
+        logger.info(f"Request #{request_number}, Intent: {intent}, Key: {conversation_key}")
+        logger.info(
+            f"Is New Request: {is_new_request}, Is More: {is_more_request or is_short_more}"
+        )
 
         # Find and score all matches
         all_matches = []
@@ -532,28 +581,61 @@ class handler(BaseHTTPRequestHandler):
         return simple_yes or any(request in message_lower for request in description_requests)
 
     def _create_conversation_key(self, original_message):
-        """Create conversation key for unified session tracking"""
+        """Create conversation key with proper new request detection"""
         message_lower = original_message.lower().strip()
-        targeting_indicators = [
-            "target",
-            "gym",
-            "fitness",
-            "food",
-            "restaurant",
-            "hardwood",
-            "floor",
-            "confused",
-            "clarify",
-            "explain",
-            "combo",
-            "yes",
-            "no",
-            "more",
+
+        # CRITICAL FIX: Detect genuinely NEW targeting requests
+        new_request_indicators = [
+            "target people who",
+            "find people who",
+            "reach people who",
+            "i want to target",
+            "target gym",
+            "target foodies",
+            "target video games",
+            "target gamers",
+            "target shoppers",
+            "target car buyers",
+            "target home",
+            "target hardwood",
+            "people who play",
+            "people who buy",
+            "people interested in",
         ]
 
-        if any(indicator in message_lower for indicator in targeting_indicators):
-            return "targeting_session"
-        return "general_session"
+        # More request indicators
+        more_indicators = ["more", "more options", "additional", "what else", "other options"]
+        is_more_request = any(indicator in message_lower for indicator in more_indicators)
+
+        # Check if this is a new targeting request
+        is_new_request = any(indicator in message_lower for indicator in new_request_indicators)
+
+        # If it's clearly a new request, create a unique key
+        if is_new_request and not is_more_request:
+            # Extract the core audience type for the key
+            if any(word in message_lower for word in ["gym", "fitness", "exercise", "workout"]):
+                return f"fitness_session_{int(time.time())}"
+            elif any(word in message_lower for word in ["food", "restaurant", "dining", "foodies"]):
+                return f"food_session_{int(time.time())}"
+            elif any(
+                word in message_lower
+                for word in ["game", "gamer", "gaming", "video games", "play video"]
+            ):
+                return f"gaming_session_{int(time.time())}"
+            elif any(word in message_lower for word in ["shop", "shopping", "shoppers", "retail"]):
+                return f"shopping_session_{int(time.time())}"
+            elif any(word in message_lower for word in ["car", "auto", "vehicle", "automotive"]):
+                return f"automotive_session_{int(time.time())}"
+            elif any(
+                word in message_lower for word in ["home", "house", "property", "hardwood", "floor"]
+            ):
+                return f"home_session_{int(time.time())}"
+            else:
+                # General targeting gets a unique timestamp-based key
+                return f"general_session_{int(time.time())}"
+
+        # For clarification, explanation, and "more" requests, use unified session
+        return "targeting_session"
 
     def _get_conversation_state(self, conversation_key):
         """Get or create conversation state"""
