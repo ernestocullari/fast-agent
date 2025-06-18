@@ -305,8 +305,8 @@ class handler(BaseHTTPRequestHandler):
         # Health check endpoint
         result = {
             "status": "✅ LIVE",
-            "message": "Artemis Targeting MCP Server - REPEAT DETECTION FIXED",
-            "version": "5.3.0-REPEAT-DETECTION-FIXED",
+            "message": "Artemis Targeting MCP Server - MORE OPTIONS FIXED",
+            "version": "5.4.0-MORE-OPTIONS-FIXED",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
@@ -623,11 +623,24 @@ class handler(BaseHTTPRequestHandler):
             "people interested in",
         ]
 
-        # More request indicators
-        more_indicators = ["more", "more options", "additional", "what else", "other options"]
+        # More request indicators - ENHANCED
+        more_indicators = [
+            "more",
+            "more options",
+            "more combinations",
+            "more pathways",
+            "additional",
+            "other options",
+            "what else",
+            "any more",
+            "show me more",
+            "give me more",
+            "different options",
+            "alternative",
+        ]
         is_more_request = any(indicator in message_lower for indicator in more_indicators)
 
-        # CLARIFICATION INDICATORS - CRITICAL FIX
+        # CLARIFICATION INDICATORS
         clarification_indicators = [
             "clarify combo",
             "explain combo",
@@ -646,33 +659,52 @@ class handler(BaseHTTPRequestHandler):
         # Check if this is a new targeting request
         is_new_request = any(indicator in message_lower for indicator in new_request_indicators)
 
-        # FIXED LOGIC: Clarification and "more" requests should use the MOST RECENT session
-        if is_clarification or is_more_request:
-            # Find the most recent gaming/food/fitness session in CONVERSATION_STATE
+        # CRITICAL FIX: For "more" requests, ALWAYS use the most recent timestamped session
+        if is_more_request:
             global CONVERSATION_STATE
             recent_sessions = []
 
             for key in CONVERSATION_STATE.keys():
                 if "_session_" in key and CONVERSATION_STATE[key].get("delivered_pathways"):
-                    # Extract timestamp from key like "gaming_session_1735401234"
                     try:
                         timestamp = int(key.split("_")[-1])
                         recent_sessions.append((timestamp, key))
                     except:
                         continue
 
-            # Return the most recent session that has delivered pathways
+            if recent_sessions:
+                recent_sessions.sort(reverse=True)  # Most recent first
+                most_recent_key = recent_sessions[0][1]
+                logger.info(f"MORE REQUEST: Using recent session {most_recent_key}")
+                return most_recent_key
+
+            # If no recent sessions, fall back to targeting_session
+            logger.warning("MORE REQUEST: No recent sessions found, using targeting_session")
+            return "targeting_session"
+
+        # For clarification requests, find the most recent session
+        if is_clarification:
+            global CONVERSATION_STATE
+            recent_sessions = []
+
+            for key in CONVERSATION_STATE.keys():
+                if "_session_" in key and CONVERSATION_STATE[key].get("delivered_pathways"):
+                    try:
+                        timestamp = int(key.split("_")[-1])
+                        recent_sessions.append((timestamp, key))
+                    except:
+                        continue
+
             if recent_sessions:
                 recent_sessions.sort(reverse=True)  # Most recent first
                 most_recent_key = recent_sessions[0][1]
                 logger.info(f"CLARIFICATION: Using recent session {most_recent_key}")
                 return most_recent_key
 
-            # Fallback to targeting_session if no timestamped sessions found
             return "targeting_session"
 
         # If it's clearly a new request, create a unique key
-        if is_new_request and not is_more_request:
+        if is_new_request:
             # Extract the core audience type for the key
             if any(word in message_lower for word in ["gym", "fitness", "exercise", "workout"]):
                 return f"fitness_session_{int(time.time())}"
@@ -695,7 +727,7 @@ class handler(BaseHTTPRequestHandler):
                 # General targeting gets a unique timestamp-based key
                 return f"general_session_{int(time.time())}"
 
-        # For other requests, use unified session
+        # For other requests (like "yes"), use unified session
         return "targeting_session"
 
     def _get_conversation_state(self, conversation_key):
