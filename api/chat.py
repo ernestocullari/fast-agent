@@ -4,11 +4,265 @@ import os
 import traceback
 import re
 import hashlib
+import logging
+from functools import lru_cache
+from typing import Dict, List, Optional, Tuple
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
 # Global conversation state tracking
 CONVERSATION_STATE = {}
+
+
+# CONFIGURATION: Intent Detection Keywords (Class-level constants)
+class TargetingConfig:
+    FITNESS_KEYWORDS = [
+        "gym",
+        "fitness",
+        "exercise",
+        "workout",
+        "health",
+        "athletic",
+        "sport",
+        "wellness",
+        "active",
+        "physical activity",
+        "training",
+    ]
+
+    FOOD_KEYWORDS = [
+        "food",
+        "foodies",
+        "restaurant",
+        "restaurants",
+        "dining",
+        "dine",
+        "eat",
+        "meal",
+        "cuisine",
+        "chef",
+        "cook",
+        "culinary",
+        "fast food",
+        "family restaurant",
+        "frequent diner",
+    ]
+
+    HOME_KEYWORDS = [
+        "floor",
+        "floors",
+        "flooring",
+        "hardwood",
+        "carpet",
+        "tile",
+        "renovation",
+        "remodel",
+        "home improvement",
+        "house",
+        "property",
+        "real estate",
+        "home",
+        "construction",
+    ]
+
+    MORE_OPTIONS_PHRASES = [
+        "more options",
+        "more combinations",
+        "more pathways",
+        "additional",
+        "other options",
+        "what else",
+        "any more",
+        "show me more",
+        "give me more",
+        "different options",
+        "alternative",
+        "more",
+        "else",
+        "other",
+    ]
+
+    # SCORING RULES: Configurable JSON-like structure
+    SCORING_RULES = {
+        "FITNESS": {
+            "exact_matches": {
+                "gyms & fitness clubs": 10000,
+                "gym - frequent visitor": 9500,
+                "fitness enthusiast": 9000,
+                "health & fitness": 8000,
+                "personal fitness & exercise": 7500,
+                "fitness": 7000,
+                "exercise": 6500,
+                "workout": 6000,
+                "athletic": 5500,
+                "sport": 5000,
+            },
+            "category_weights": {
+                "household behaviors & interests": 5000,
+                "lifestyle propensities": 4000,
+                "purchase predictors": 3500,
+                "mobile location models": 3000,
+                "consumer behavior": 2500,
+            },
+            "keyword_bonus": 1000,
+            "max_score_cap": 15000,
+        },
+        "FOOD": {
+            "exact_matches": {
+                "family restaurant": 10000,
+                "frequent diner": 9500,
+                "fast food": 9000,
+                "restaurant": 8500,
+                "food": 8000,
+                "dining": 7500,
+                "culinary": 7000,
+                "cuisine": 6500,
+            },
+            "category_weights": {
+                "lifestyle models": 8000,
+                "consumer behavior": 7000,
+                "household behaviors & interests": 6000,
+                "purchase predictors": 5000,
+                "consumer financial insights": 4000,
+            },
+            "keyword_bonus": 1500,
+            "max_score_cap": 15000,
+        },
+        "HOME": {
+            "exact_matches": {
+                "hardwood flooring": 10000,
+                "home improvement": 9500,
+                "renovation": 9000,
+                "flooring": 8500,
+                "real estate": 8000,
+                "property": 7500,
+                "home": 7000,
+            },
+            "category_weights": {
+                "home property": 8000,
+                "household behaviors & interests": 7000,
+                "purchase predictors": 6000,
+                "lifestyle propensities": 5000,
+            },
+            "keyword_bonus": 1500,
+            "max_score_cap": 15000,
+        },
+        "GENERAL": {
+            "exact_match_multiplier": 1000,
+            "partial_match_multiplier": 250,
+            "description_bonus": 15,
+            "max_score_cap": 5000,
+        },
+    }
+
+    # COMBO PAGING: Configurable window size
+    COMBOS_PER_PAGE = 3
+    MAX_PAGES = 5
+
+
+class TargetingMatcher:
+    """Optimized targeting matcher with caching and normalized scoring"""
+
+    def __init__(self):
+        self._match_cache = {}
+
+    @lru_cache(maxsize=128)
+    def _normalize_text(self, text: str) -> str:
+        """Cache normalized text to avoid redundant processing"""
+        if not text:
+            return ""
+        return re.sub(r"[^\w\s]", " ", str(text).lower()).strip()
+
+    def _detect_intent(self, message: str) -> str:
+        """Detect user intent based on keywords"""
+        message_lower = self._normalize_text(message)
+
+        if any(keyword in message_lower for keyword in TargetingConfig.FITNESS_KEYWORDS):
+            return "FITNESS"
+        elif any(keyword in message_lower for keyword in TargetingConfig.FOOD_KEYWORDS):
+            return "FOOD"
+        elif any(keyword in message_lower for keyword in TargetingConfig.HOME_KEYWORDS):
+            return "HOME"
+        else:
+            return "GENERAL"
+
+    def _calculate_normalized_score(self, option: Dict, intent: str, user_words: set) -> float:
+        """Calculate normalized score with capping to prevent disproportionate stacking"""
+
+        # Create cache key
+        cache_key = f"{option['Category']}_{option['Demographic']}_{intent}"
+        if cache_key in self._match_cache:
+            return self._match_cache[cache_key]
+
+        score = 0
+
+        # Normalize all text once
+        category_norm = self._normalize_text(option["category"])
+        grouping_norm = self._normalize_text(option["grouping"])
+        demographic_norm = self._normalize_text(option["demographic"])
+        description_norm = self._normalize_text(option["description"])
+        all_text = f"{category_norm} {grouping_norm} {demographic_norm} {description_norm}"
+
+        scoring_rules = TargetingConfig.SCORING_RULES.get(
+            intent, TargetingConfig.SCORING_RULES["GENERAL"]
+        )
+
+        if intent in ["FITNESS", "FOOD", "HOME"]:
+            # Check exact matches
+            exact_matches = scoring_rules.get("exact_matches", {})
+            for match_text, points in exact_matches.items():
+                if match_text in all_text:
+                    score += points
+                    break  # Only award highest exact match
+
+            # Check category weights (capped)
+            category_weights = scoring_rules.get("category_weights", {})
+            for category, points in category_weights.items():
+                if category in category_norm:
+                    score += min(points, 5000)  # Cap category bonus
+                    break
+
+            # Keyword bonus (limited to prevent stacking)
+            keyword_bonus = scoring_rules.get("keyword_bonus", 1000)
+            keywords = getattr(TargetingConfig, f"{intent}_KEYWORDS")
+            keyword_matches = sum(1 for keyword in keywords if keyword in all_text)
+            score += min(keyword_matches * keyword_bonus, keyword_bonus * 2)  # Max 2x bonus
+
+        else:  # GENERAL scoring
+            demographic_words = set(re.findall(r"\b\w+\b", demographic_norm))
+            exact_matches = user_words.intersection(demographic_words)
+
+            if exact_matches:
+                match_ratio = len(exact_matches) / len(user_words) if user_words else 0
+                if match_ratio >= 0.8:
+                    score += scoring_rules["exact_match_multiplier"]
+                elif match_ratio >= 0.4:
+                    score += scoring_rules["partial_match_multiplier"]
+
+            # Description bonus
+            description_words = set(re.findall(r"\b\w+\b", description_norm))
+            desc_matches = user_words.intersection(description_words)
+            score += len(desc_matches) * scoring_rules["description_bonus"]
+
+        # Apply score cap
+        max_cap = scoring_rules.get("max_score_cap", 10000)
+        final_score = min(score, max_cap)
+
+        # Cache result
+        self._match_cache[cache_key] = final_score
+
+        logger.debug(f"Scored {option['demographic']}: {final_score} (intent: {intent})")
+        return final_score
+
+
+# Global matcher instance
+matcher = TargetingMatcher()
 
 
 class handler(BaseHTTPRequestHandler):
@@ -16,16 +270,12 @@ class handler(BaseHTTPRequestHandler):
         # Health check endpoint
         result = {
             "status": "✅ LIVE",
-            "message": "Artemis Targeting MCP Server - ENHANCED WITH COMBO-SPECIFIC CLARIFICATION & FIXED ENUMERATION",
-            "version": "4.8.0-MORE-REQUEST-FIXED",
+            "message": "Artemis Targeting MCP Server - OPTIMIZED WITH CACHING & NORMALIZED SCORING",
+            "version": "5.0.0-OPTIMIZED",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(json.dumps(result).encode())
+        self._send_json_response(result)
 
     def do_POST(self):
         try:
@@ -40,107 +290,37 @@ class handler(BaseHTTPRequestHandler):
                 self._send_error("No message provided", 400)
                 return
 
-            print(f"🎯 RECEIVED MESSAGE: '{user_message}'")
+            logger.info(f"Processing message: '{user_message}'")
 
             # **PRIORITY 1: Check for specific combo clarification requests**
             combo_pattern = r"(?:combo|combination|option)\s*(\d+)"
             combo_match = re.search(combo_pattern, user_message.lower())
 
             if combo_match:
-                combo_number = int(combo_match.group(1))
-                conversation_key = self._create_conversation_key(user_message)
-                conv_state = self._get_conversation_state(conversation_key)
-
-                # Find the specific combo description
-                delivered_pathways = conv_state.get("delivered_pathways", [])
-                target_combo = None
-
-                for pathway in delivered_pathways:
-                    if pathway.get("combo_number") == combo_number:
-                        target_combo = pathway
-                        break
-
-                if target_combo:
-                    response = {
-                        "status": "success",
-                        "response": f"**Combo {combo_number} Description:**\n\n{target_combo['pathway']}\n\n*{target_combo.get('description', 'No description available')}*\n\nWould you like clarification on any other combos?",
-                        "targeting_pathways": [],
-                        "conversation_action": "specific_combo_clarification",
-                    }
-                    print(f"🔍 RETURNING SPECIFIC COMBO {combo_number} CLARIFICATION")
-                    self._send_json_response(response)
-                    return
-                else:
-                    response = {
-                        "status": "success",
-                        "response": f"I don't see a Combo {combo_number} in our conversation. Which specific combo would you like me to clarify?",
-                        "targeting_pathways": [],
-                        "conversation_action": "combo_not_found",
-                    }
-                    print(f"🔍 COMBO {combo_number} NOT FOUND")
-                    self._send_json_response(response)
-                    return
+                response = self._handle_combo_clarification(combo_match, user_message)
+                self._send_json_response(response)
+                return
 
             # **PRIORITY 2: Check for general confusion/description requests**
             if self._detect_confusion_or_description_request(user_message.lower()):
-                conversation_key = self._create_conversation_key(user_message)
-                conv_state = self._get_conversation_state(conversation_key)
-                delivered_pathways = conv_state.get("delivered_pathways", [])
-
-                if delivered_pathways:
-                    # User has seen combos, ask which ones they want clarified
-                    combo_list = ", ".join(
-                        [f"Combo {p['combo_number']}" for p in delivered_pathways]
-                    )
-                    response = {
-                        "status": "success",
-                        "response": f"I can provide detailed descriptions for any of the targeting pathways you've seen. Which combo would you like me to clarify?\n\nAvailable combos: {combo_list}\n\nJust say something like 'explain combo 1' or 'clarify combo 2'.",
-                        "targeting_pathways": [],
-                        "conversation_action": "ask_which_combo",
-                    }
-                else:
-                    # No combos shown yet, general offer
-                    response = {
-                        "status": "success",
-                        "response": "I can see you'd like more clarity about targeting options. Would you like me to include detailed descriptions with your targeting pathways?",
-                        "targeting_pathways": [],
-                        "conversation_action": "offer_descriptions",
-                    }
-
-                print(f"🔍 RETURNING CONFUSION RESPONSE")
+                response = self._handle_confusion_request(user_message)
                 self._send_json_response(response)
                 return
 
             # **PRIORITY 3: Check for description confirmation**
             if self._detect_description_request(user_message.lower()):
-                # Set description flag in conversation state
-                conversation_key = self._create_conversation_key(user_message)
-                conv_state = self._get_conversation_state(conversation_key)
-                conv_state["show_descriptions"] = True
-
-                response = {
-                    "status": "success",
-                    "response": "Perfect! I'll include detailed descriptions with your targeting pathways. What audience would you like to target?",
-                    "targeting_pathways": [],
-                    "conversation_action": "descriptions_enabled",
-                }
-                print(f"🔍 ENABLING DESCRIPTIONS for key: {conversation_key}")
+                response = self._handle_description_request(user_message)
                 self._send_json_response(response)
                 return
 
-            # **PRIORITY 4: Now get targeting data for regular queries**
+            # **PRIORITY 4: Handle targeting requests**
             targeting_data = self._get_targeting_data()
             if not targeting_data:
                 self._send_error("Could not access targeting database", 500)
                 return
 
-            # Apply semantic phrase mapping
-            processed_message = self._apply_semantic_mapping(user_message.lower())
-
-            # Find matching targeting options with PROGRESSIVE PATHWAY LOGIC
-            matches = self._find_targeting_matches_progressive(
-                processed_message, targeting_data, user_message
-            )
+            # Find targeting matches
+            matches = self._find_targeting_matches_optimized(user_message, targeting_data)
 
             if matches:
                 response = self._format_targeting_response(matches, user_message)
@@ -150,30 +330,182 @@ class handler(BaseHTTPRequestHandler):
             self._send_json_response(response)
 
         except Exception as e:
-            print(f"❌ ERROR: {str(e)}")
-            print(f"❌ TRACEBACK: {traceback.format_exc()}")
+            logger.error(f"Error processing request: {str(e)}", exc_info=True)
             self._send_error(f"Server error: {str(e)}", 500)
 
-    def _send_json_response(self, response):
-        """Helper to send JSON response"""
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(json.dumps(response).encode())
+    def _handle_combo_clarification(self, combo_match, user_message):
+        """Handle specific combo clarification requests"""
+        combo_number = int(combo_match.group(1))
+        conversation_key = self._create_conversation_key(user_message)
+        conv_state = self._get_conversation_state(conversation_key)
+
+        delivered_pathways = conv_state.get("delivered_pathways", [])
+        target_combo = next(
+            (p for p in delivered_pathways if p.get("combo_number") == combo_number), None
+        )
+
+        if target_combo:
+            logger.info(f"Returning clarification for combo {combo_number}")
+            return {
+                "status": "success",
+                "response": f"**Combo {combo_number} Description:**\n\n{target_combo['pathway']}\n\n*{target_combo.get('description', 'No description available')}*\n\nWould you like clarification on any other combos?",
+                "targeting_pathways": [],
+                "conversation_action": "specific_combo_clarification",
+            }
+        else:
+            return {
+                "status": "success",
+                "response": f"I don't see a Combo {combo_number} in our conversation. Which specific combo would you like me to clarify?",
+                "targeting_pathways": [],
+                "conversation_action": "combo_not_found",
+            }
+
+    def _handle_confusion_request(self, user_message):
+        """Handle general confusion/description requests"""
+        conversation_key = self._create_conversation_key(user_message)
+        conv_state = self._get_conversation_state(conversation_key)
+        delivered_pathways = conv_state.get("delivered_pathways", [])
+
+        if delivered_pathways:
+            combo_list = ", ".join([f"Combo {p['combo_number']}" for p in delivered_pathways])
+            return {
+                "status": "success",
+                "response": f"I can provide detailed descriptions for any of the targeting pathways you've seen. Which combo would you like me to clarify?\n\nAvailable combos: {combo_list}\n\nJust say something like 'explain combo 1' or 'clarify combo 2'.",
+                "targeting_pathways": [],
+                "conversation_action": "ask_which_combo",
+            }
+        else:
+            return {
+                "status": "success",
+                "response": "I can see you'd like more clarity about targeting options. Would you like me to include detailed descriptions with your targeting pathways?",
+                "targeting_pathways": [],
+                "conversation_action": "offer_descriptions",
+            }
+
+    def _handle_description_request(self, user_message):
+        """Handle description confirmation requests"""
+        conversation_key = self._create_conversation_key(user_message)
+        conv_state = self._get_conversation_state(conversation_key)
+        conv_state["show_descriptions"] = True
+
+        logger.info(f"Enabled descriptions for conversation key: {conversation_key}")
+        return {
+            "status": "success",
+            "response": "Perfect! I'll include detailed descriptions with your targeting pathways. What audience would you like to target?",
+            "targeting_pathways": [],
+            "conversation_action": "descriptions_enabled",
+        }
+
+    def _find_targeting_matches_optimized(
+        self, user_message: str, targeting_data: List[Dict]
+    ) -> List[Dict]:
+        """OPTIMIZED targeting matcher with cleaner combo paging logic"""
+
+        original_message = user_message
+        conversation_key = self._create_conversation_key(original_message)
+        conv_state = self._get_conversation_state(conversation_key)
+
+        # Detect intent
+        intent = matcher._detect_intent(user_message)
+
+        # Check if this is a "more" request
+        is_more_request = any(
+            phrase in user_message.lower() for phrase in TargetingConfig.MORE_OPTIONS_PHRASES
+        )
+        is_short_more = len(user_message.split()) <= 3 and "more" in user_message.lower()
+
+        # Detect new targeting request
+        targeting_keywords = (
+            TargetingConfig.FITNESS_KEYWORDS
+            + TargetingConfig.FOOD_KEYWORDS
+            + TargetingConfig.HOME_KEYWORDS
+            + ["target", "find", "reach"]
+        )
+        is_new_targeting_request = (
+            not (is_more_request or is_short_more)
+            and any(keyword in user_message.lower() for keyword in targeting_keywords)
+            and conv_state["request_count"] == 0
+        )
+
+        # Reset for new targeting conversations
+        if is_new_targeting_request:
+            logger.info("New targeting request detected - resetting state")
+            conv_state["request_count"] = 0
+            conv_state["delivered_pathways"] = []
+            conv_state["original_intent"] = original_message
+
+        # Store original intent on first request
+        if conv_state["request_count"] == 0:
+            conv_state["original_intent"] = original_message
+
+        # Increment request count
+        conv_state["request_count"] += 1
+        request_number = conv_state["request_count"]
+
+        # Use original intent for subsequent requests
+        if request_number > 1:
+            intent = matcher._detect_intent(conv_state.get("original_intent", ""))
+
+        logger.info(f"Request #{request_number}, Intent: {intent}")
+
+        # Find and score all matches
+        all_matches = []
+        user_words = set(re.findall(r"\b\w+\b", user_message.lower()))
+
+        for option in targeting_data:
+            if self._is_automotive_related(option, original_message):
+                continue
+
+            score = matcher._calculate_normalized_score(option, intent, user_words)
+
+            if score > 0:
+                match_data = {
+                    "option": option,
+                    "score": score,
+                    "pathway": f"{option['Category']} → {option['Grouping']} → {option['Demographic']}",
+                    "description": option["Description"],
+                }
+                all_matches.append(match_data)
+
+        # Sort by score
+        all_matches.sort(key=lambda x: x["score"], reverse=True)
+
+        # **CLEANER COMBO PAGING LOGIC**
+        combos_per_page = TargetingConfig.COMBOS_PER_PAGE
+        start_index = (request_number - 1) * combos_per_page
+        end_index = start_index + combos_per_page
+        start_combo = start_index + 1
+
+        selected_matches = all_matches[start_index:end_index]
+
+        # Check if we've exceeded max pages
+        if request_number > TargetingConfig.MAX_PAGES or not selected_matches:
+            return []
+
+        # Add combo numbers
+        for i, match in enumerate(selected_matches):
+            combo_number = start_combo + i
+            match["combo_number"] = combo_number
+
+            # Store in conversation state (avoid duplicates)
+            if not any(
+                p.get("combo_number") == combo_number for p in conv_state["delivered_pathways"]
+            ):
+                conv_state["delivered_pathways"].append(
+                    {
+                        "combo_number": combo_number,
+                        "pathway": match["pathway"],
+                        "description": match["description"],
+                    }
+                )
+
+        range_text = f"{start_combo}-{start_combo + len(selected_matches) - 1}"
+        logger.info(f"Returning pathways {range_text}: {len(selected_matches)} matches")
+
+        return selected_matches
 
     def _detect_confusion_or_description_request(self, message_lower):
-        """Detect if user is confused or wants descriptions for specific combos"""
-
-        # Check for specific combo requests (e.g., "clarify combo 2", "explain combo 1")
-        combo_pattern = r"(?:combo|combination|option)\s*(\d+)"
-        combo_match = re.search(combo_pattern, message_lower)
-
-        if combo_match:
-            combo_number = int(combo_match.group(1))
-            print(f"✅ SPECIFIC COMBO CLARIFICATION: Combo {combo_number}")
-            return True
-
+        """Detect confusion or description requests"""
         confusion_indicators = [
             "what does this mean",
             "what is this",
@@ -182,115 +514,45 @@ class handler(BaseHTTPRequestHandler):
             "what are these",
             "explain",
             "what do these mean",
-            "what does combo",
-            "explain combo",
-            "clarify combo",
-            "describe combo",
-            "i don't know what",
-            "unclear",
-            "not sure what",
-            "can you explain",
-            "more details",
-            "what does",
-            "help me understand",
             "clarify",
-            "accuracy",
-            "accurate",
-            "correct",
-            "right",
-            "wrong",
-            "questionable",
-            "make sense",
-            "meaning",
-            "don't get it",
-            "what's this",
             "describe",
-            "details about",
-            "tell me about",
-            "more info about",
         ]
-
-        print(f"🔍 CHECKING CONFUSION for: '{message_lower}'")
-
-        for indicator in confusion_indicators:
-            if indicator in message_lower:
-                print(f"✅ CONFUSION DETECTED: Found '{indicator}' in message")
-                return True
-
-        print(f"❌ NO CONFUSION DETECTED")
-        return False
+        return any(indicator in message_lower for indicator in confusion_indicators)
 
     def _detect_description_request(self, message_lower):
-        """Detect if user wants to see descriptions"""
+        """Detect description requests"""
         description_requests = [
             "yes",
             "show descriptions",
-            "add descriptions",
-            "with descriptions",
             "include descriptions",
-            "see descriptions",
-            "descriptions please",
             "more info",
-            "more information",
             "details",
-            "tell me more",
-            "yes please",
-            "sure",
-            "okay",
-            "ok",
-            "that would help",
-            "sounds good",
         ]
-
-        # Check for simple affirmative responses
-        simple_yes = message_lower.strip() in ["yes", "y", "sure", "ok", "okay", "yep", "yeah"]
-
-        print(f"🔍 CHECKING DESCRIPTION REQUEST for: '{message_lower}'")
-
-        if simple_yes:
-            print(f"✅ DESCRIPTION REQUEST: Simple yes detected")
-            return True
-
-        for request in description_requests:
-            if request in message_lower:
-                print(f"✅ DESCRIPTION REQUEST: Found '{request}' in message")
-                return True
-
-        print(f"❌ NO DESCRIPTION REQUEST DETECTED")
-        return False
+        simple_yes = message_lower.strip() in ["yes", "y", "sure", "ok", "okay"]
+        return simple_yes or any(request in message_lower for request in description_requests)
 
     def _create_conversation_key(self, original_message):
-        """Create a stable key for conversation tracking based on core intent"""
-
-        # **CRITICAL FIX: Use single session key for all targeting-related conversations**
+        """Create conversation key for unified session tracking"""
         message_lower = original_message.lower().strip()
-
-        # For all targeting, confusion, and description requests - use same key
         targeting_indicators = [
             "target",
             "gym",
             "fitness",
-            "health",
-            "market",
+            "food",
+            "restaurant",
             "hardwood",
             "floor",
-            "what do these mean",
             "confused",
             "clarify",
             "explain",
             "combo",
-            "combination",
             "yes",
             "no",
             "more",
         ]
 
         if any(indicator in message_lower for indicator in targeting_indicators):
-            print(f"🔑 CONVERSATION KEY: targeting_session (unified session)")
             return "targeting_session"
-
-        # For step completion and other non-targeting messages
-        print(f"🔑 CONVERSATION KEY: general_session")
         return "general_session"
 
     def _get_conversation_state(self, conversation_key):
@@ -302,83 +564,20 @@ class handler(BaseHTTPRequestHandler):
                 "request_count": 0,
                 "last_query": "",
                 "show_descriptions": False,
-                "creation_time": "now",
-                "original_intent": "",  # Track original user intent
-                "delivered_pathways": [],  # Track delivered pathways with combo numbers
+                "original_intent": "",
+                "delivered_pathways": [],
             }
 
         return CONVERSATION_STATE[conversation_key]
 
-    def _apply_semantic_mapping(self, user_message):
-        """Convert natural language phrases to targeting database terminology"""
-
-        # ENHANCED semantic phrase mappings with home improvement support
-        mappings = [
-            # HOME IMPROVEMENT MAPPINGS
-            (r"hardwood floors?", "hardwood flooring"),
-            (r"wood floors?", "hardwood flooring"),
-            (r"people in the market for hardwood floors?", "hardwood flooring shoppers"),
-            (r"people looking for floors?", "flooring shoppers"),
-            (r"home improvement", "home renovation"),
-            (r"house renovation", "home renovation"),
-            # FITNESS PRIORITY MAPPINGS
-            (r"people who go to (?:the )?gym", "gym members"),
-            (r"go to (?:the )?gym", "gym members"),
-            (r"gym goers?", "gym members"),
-            (r"fitness center", "gym members"),
-            (r"work out", "fitness enthusiasts"),
-            (r"workout", "fitness enthusiasts"),
-            (r"exercise", "fitness enthusiasts"),
-            (r"athletic", "fitness enthusiasts"),
-            (r"health conscious", "health conscious consumers"),
-            (r"wellness", "wellness enthusiasts"),
-            # Market/Shopping intent patterns
-            (r"people in the market for (.+)", r"\1 shoppers"),
-            (r"in the market for (.+)", r"\1 shoppers"),
-            (r"looking to buy (.+)", r"\1 shoppers"),
-            (r"buyers of (.+)", r"\1 shoppers"),
-            (r"purchasing (.+)", r"\1 shoppers"),
-            (r"shopping for (.+)", r"\1 shoppers"),
-            # Interest/Enthusiasm patterns
-            (r"people interested in (.+)", r"\1 enthusiasts"),
-            (r"interested in (.+)", r"\1 enthusiasts"),
-            (r"fans of (.+)", r"\1 enthusiasts"),
-            (r"people who love (.+)", r"\1 enthusiasts"),
-            (r"people passionate about (.+)", r"\1 enthusiasts"),
-            # Demographic patterns
-            (r"people who (.+)", r"\1"),
-            (r"individuals who (.+)", r"\1"),
-            (r"consumers who (.+)", r"\1"),
-            (r"households that (.+)", r"\1"),
-            # Activity patterns
-            (r"people who do (.+)", r"\1"),
-            (r"people who practice (.+)", r"\1"),
-            (r"people who participate in (.+)", r"\1"),
-            # Possession patterns
-            (r"people who own (.+)", r"\1 owners"),
-            (r"owners of (.+)", r"\1 owners"),
-            (r"people who have (.+)", r"\1 owners"),
-        ]
-
-        processed = user_message
-
-        # Apply each mapping
-        for pattern, replacement in mappings:
-            processed = re.sub(pattern, replacement, processed, flags=re.IGNORECASE)
-
-        # Clean up extra spaces
-        processed = re.sub(r"\s+", " ", processed).strip()
-
-        return processed
-
+    @lru_cache(maxsize=1)
     def _get_targeting_data(self):
+        """Cached targeting data retrieval"""
         try:
-            # Get environment variables
             private_key = os.getenv("GOOGLE_PRIVATE_KEY").replace("\\n", "\n")
             client_email = os.getenv("GOOGLE_CLIENT_EMAIL")
             sheet_id = os.getenv("GOOGLE_SHEET_ID")
 
-            # Create credentials
             creds_info = {
                 "type": "service_account",
                 "project_id": "quick-website-dev",
@@ -394,10 +593,9 @@ class handler(BaseHTTPRequestHandler):
                 creds_info, scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
             )
 
-            # Build service and get data
             service = build("sheets", "v4", credentials=credentials)
 
-            # Try multiple range formats for compatibility
+            # Try multiple range formats
             for range_name in ["Sheet1!A:D", "A:D", "A1:D5000"]:
                 try:
                     result = (
@@ -411,51 +609,41 @@ class handler(BaseHTTPRequestHandler):
                     continue
 
             values = result.get("values", [])
-
-            # Convert to structured data (skip header row if it exists)
             targeting_options = []
-            start_row = (
-                1
-                if values
-                and values[0]
-                and any(word in str(values[0][0]).lower() for word in ["category", "cat"])
-                else 0
-            )
+            start_row = 1 if values and "category" in str(values[0][0]).lower() else 0
 
             for row in values[start_row:]:
                 if len(row) >= 4:
                     targeting_options.append(
                         {
-                            "category": row[0].strip(),
+                            "Category": row[0].strip(),
+                            "Grouping": row[1].strip(),
+                            "Demographic": row[2].strip(),
+                            "Description": row[3].strip(),
+                            "category": row[0].strip(),  # lowercase for compatibility
                             "grouping": row[1].strip(),
                             "demographic": row[2].strip(),
                             "description": row[3].strip(),
                         }
                     )
 
-            print(f"📊 LOADED {len(targeting_options)} targeting options from database")
+            logger.info(f"Loaded {len(targeting_options)} targeting options")
             return targeting_options
 
         except Exception as e:
-            print(f"❌ DATABASE ERROR: {str(e)}")
+            logger.error(f"Database error: {str(e)}")
             return None
 
     def _is_automotive_related(self, option, user_message):
-        """Enhanced automotive detection across all fields"""
-
-        # Comprehensive automotive keywords
+        """Enhanced automotive detection"""
         automotive_keywords = [
             "auto",
             "car",
             "cars",
             "vehicle",
-            "vehicles",
             "automotive",
             "dealership",
             "truck",
-            "trucks",
-            "suv",
-            "sedan",
             "honda",
             "toyota",
             "ford",
@@ -463,365 +651,26 @@ class handler(BaseHTTPRequestHandler):
             "mercedes",
             "audi",
             "lexus",
-            "acura",
-            "nissan",
-            "mazda",
-            "hyundai",
-            "kia",
-            "jeep",
-            "ram",
-            "chevrolet",
-            "gmc",
-            "cadillac",
-            "buick",
-            "volkswagen",
-            "volvo",
-            "subaru",
-            "infiniti",
-            "lincoln",
-            "chrysler",
-            "dodge",
-            "mitsubishi",
-            "porsche",
-            "ferrari",
-            "lamborghini",
-            "maserati",
-            "motorcycle",
-            "motorcycles",
-            "harley",
-            "yamaha",
-            "kawasaki",
         ]
 
-        # Check if user explicitly requested automotive content
-        user_wants_auto = any(keyword in user_message.lower() for keyword in automotive_keywords)
+        # Don't filter if user wants automotive content
+        if any(keyword in user_message.lower() for keyword in automotive_keywords):
+            return False
 
-        if user_wants_auto:
-            return False  # Don't filter if user wants automotive content
-
-        # Check all fields for automotive content
-        all_text = f"{option['category']} {option['grouping']} {option['demographic']} {option['description']}".lower()
-
-        # More aggressive automotive detection
-        for keyword in automotive_keywords:
-            if keyword in all_text:
-                return True
-
-        return False
-
-    def _find_targeting_matches_progressive(self, user_message, targeting_data, original_message):
-        """PROGRESSIVE PATHWAY MATCHING with FIXED enumeration and PROPER intent detection"""
-
-        # Create conversation key and get state
-        conversation_key = self._create_conversation_key(original_message)
-        conv_state = self._get_conversation_state(conversation_key)
-
-        # Store original intent on first request and RESET delivered pathways
-        if conv_state["request_count"] == 0:
-            conv_state["original_intent"] = original_message
-            conv_state["delivered_pathways"] = []  # CRITICAL FIX: Reset on new conversation
-
-        # Increment request count
-        conv_state["request_count"] += 1
-        conv_state["last_query"] = original_message
-
-        request_number = conv_state["request_count"]
-
-        print(f"🔄 CONVERSATION KEY: {conversation_key}")
-        print(f"📊 REQUEST NUMBER: {request_number}")
-        print(f"🎯 ORIGINAL INTENT: {conv_state['original_intent']}")
-        print(f"🔍 SHOW DESCRIPTIONS: {conv_state.get('show_descriptions', False)}")
-        print(f"📊 PREVIOUSLY DELIVERED: {len(conv_state.get('delivered_pathways', []))} combos")
-
-        # ENHANCED INTENT DETECTION KEYWORDS
-        fitness_keywords = [
-            "gym",
-            "fitness",
-            "exercise",
-            "workout",
-            "health",
-            "athletic",
-            "sport",
-            "wellness",
-            "active",
-        ]
-
-        home_improvement_keywords = [
-            "floor",
-            "floors",
-            "flooring",
-            "hardwood",
-            "carpet",
-            "tile",
-            "renovation",
-            "remodel",
-            "home improvement",
-            "house",
-            "property",
-            "real estate",
-            "home",
-            "renovation",
-        ]
-
-        # ENHANCED "MORE OPTIONS" DETECTION
-        more_options_phrases = [
-            "more options",
-            "more combinations",
-            "more pathways",
-            "additional",
-            "other options",
-            "what else",
-            "any more",
-            "show me more",
-            "give me more",
-            "different options",
-            "alternative",
-            "more",
-            "else",
-            "other",
-        ]
-
-        # SPECIAL: If message is very short (1-3 words) and contains "more", treat as more request
-        is_short_more_request = (
-            len(original_message.split()) <= 3 and "more" in original_message.lower()
-        )
-
-        # DETECT "MORE OPTIONS" REQUESTS
-        is_more_request = (
-            any(phrase in original_message.lower() for phrase in more_options_phrases)
-            or is_short_more_request
-        )
-
-        if is_more_request:
-            print(
-                f"🔄 MORE REQUEST DETECTED: '{original_message}' (Short: {is_short_more_request})"
-            )
-
-        # **CRITICAL FIX: SMART INTENT LOGIC - Use ORIGINAL intent, not assumed fitness**
-        if is_more_request or request_number > 1:
-            # Use ORIGINAL intent, not assumed fitness
-            original_intent = conv_state.get("original_intent", "").lower()
-            has_fitness_intent = any(keyword in original_intent for keyword in fitness_keywords)
-            has_home_improvement_intent = any(
-                keyword in original_intent for keyword in home_improvement_keywords
-            )
-            print(
-                f"🔄 SUBSEQUENT REQUEST #{request_number} - Using original intent: '{original_intent}'"
-            )
-            print(f"🎯 FITNESS INTENT: {has_fitness_intent}")
-            print(f"🏠 HOME IMPROVEMENT INTENT: {has_home_improvement_intent}")
-        else:
-            has_fitness_intent = any(
-                keyword in original_message.lower() for keyword in fitness_keywords
-            )
-            has_home_improvement_intent = any(
-                keyword in original_message.lower() for keyword in home_improvement_keywords
-            )
-            print(f"🎯 INITIAL FITNESS INTENT: {has_fitness_intent}")
-            print(f"🏠 INITIAL HOME IMPROVEMENT INTENT: {has_home_improvement_intent}")
-
-        # Find ALL matches first
-        all_matches = []
-        user_words = set(re.findall(r"\b\w+\b", user_message.lower()))
-
-        for option in targeting_data:
-            if self._is_automotive_related(option, original_message):
-                continue
-
-            score = 0
-            category_lower = option["category"].lower()
-            grouping_lower = option["grouping"].lower()
-            demographic_lower = option["demographic"].lower()
-            description_lower = option["description"].lower()
-            all_text = f"{category_lower} {grouping_lower} {demographic_lower} {description_lower}"
-
-            if has_fitness_intent:
-                # FITNESS SCORING
-                exact_fitness_matches = {
-                    "gyms & fitness clubs": 10000,
-                    "gym - frequent visitor": 9500,
-                    "fitness enthusiast": 9000,
-                    "fitness moms": 8500,
-                    "fitness dads": 8500,
-                    "health & fitness": 8000,
-                    "personal fitness & exercise": 7500,
-                    "activewear": 7000,
-                    "athletic shoe": 6500,
-                    "sporting goods": 6000,
-                    "gym membership": 5500,
-                    "fitness device": 5000,
-                    "interest in fitness": 4500,
-                    "interest in sports": 4000,
-                    "sports enthusiast": 3500,
-                }
-
-                for exact_match, points in exact_fitness_matches.items():
-                    if exact_match in all_text:
-                        score += points
-
-                fitness_categories = {
-                    "purchase predictors": 5000,
-                    "mobile location models": 4500,
-                    "household behaviors & interests": 4000,
-                    "lifestyle propensities": 3500,
-                    "household demographics": 3000,
-                }
-
-                for fit_cat, points in fitness_categories.items():
-                    if fit_cat in category_lower:
-                        score += points
-
-                for word in fitness_keywords:
-                    if word in all_text:
-                        score += 1000
-
-            elif has_home_improvement_intent:
-                # HOME IMPROVEMENT SCORING
-                exact_home_matches = {
-                    "hardwood flooring": 10000,
-                    "home improvement": 9500,
-                    "renovation": 9000,
-                    "flooring": 8500,
-                    "home & garden": 8000,
-                    "real estate": 7500,
-                    "property": 7000,
-                    "home renovation": 6500,
-                    "house": 6000,
-                }
-
-                for exact_match, points in exact_home_matches.items():
-                    if exact_match in all_text:
-                        score += points
-
-                home_categories = {
-                    "home property": 8000,
-                    "household behaviors & interests": 7000,
-                    "purchase predictors": 6000,
-                    "lifestyle propensities": 5000,
-                    "household demographics": 4000,
-                }
-
-                for home_cat, points in home_categories.items():
-                    if home_cat in category_lower:
-                        score += points
-
-                for word in home_improvement_keywords:
-                    if word in all_text:
-                        score += 1500
-
-            else:
-                # GENERAL DEMOGRAPHIC SCORING
-                demographic_words = set(re.findall(r"\b\w+\b", demographic_lower))
-                exact_demo_matches = user_words.intersection(demographic_words)
-
-                if exact_demo_matches:
-                    match_percentage = (
-                        len(exact_demo_matches) / len(user_words) if user_words else 0
-                    )
-                    if match_percentage >= 0.8:
-                        score += 1000
-                    elif match_percentage >= 0.6:
-                        score += 500
-                    elif match_percentage >= 0.4:
-                        score += 250
-                    else:
-                        score += len(exact_demo_matches) * 50
-
-                description_words = set(re.findall(r"\b\w+\b", description_lower))
-                desc_matches = user_words.intersection(description_words)
-                if desc_matches:
-                    score += len(desc_matches) * 15
-
-            if score > 0:
-                match_data = {
-                    "option": option,
-                    "score": score,
-                    "pathway": f"{option['category']} → {option['grouping']} → {option['demographic']}",
-                    "description": option["description"],
-                }
-                all_matches.append(match_data)
-
-        # Sort by score
-        all_matches.sort(key=lambda x: x["score"], reverse=True)
-
-        # **FIXED PROGRESSIVE PATHWAY SELECTION**
-        if request_number == 1:
-            selected_matches = all_matches[0:3]
-            start_combo = 1
-            range_text = "1-3"
-        elif request_number == 2:
-            selected_matches = all_matches[3:6]
-            start_combo = 4
-            range_text = "4-6"
-        elif request_number == 3:
-            selected_matches = all_matches[6:9]
-            start_combo = 7
-            range_text = "7-9"
-        elif request_number == 4:
-            selected_matches = all_matches[9:12]
-            start_combo = 10
-            range_text = "10-12"
-        elif request_number == 5:
-            selected_matches = all_matches[12:15]
-            start_combo = 13
-            range_text = "13-15"
-        else:
-            selected_matches = []
-            start_combo = 0
-            range_text = "EXHAUSTED"
-
-        # **FIXED: Proper combo numbering without duplicates**
-        for i, match in enumerate(selected_matches):
-            combo_number = start_combo + i
-            match["combo_number"] = combo_number
-
-            # Store in conversation state (avoid duplicates)
-            existing_combo = any(
-                p.get("combo_number") == combo_number for p in conv_state["delivered_pathways"]
-            )
-
-            if not existing_combo:
-                conv_state["delivered_pathways"].append(
-                    {
-                        "combo_number": combo_number,
-                        "pathway": match["pathway"],
-                        "description": match["description"],
-                    }
-                )
-
-        print(f"🎯 RETURNING PATHWAYS {range_text}: {len(selected_matches)} matches")
-        print(f"📊 TOTAL DELIVERED: {len(conv_state['delivered_pathways'])} combos")
-        print(f"📊 TOTAL AVAILABLE: {len(all_matches)} matches")
-
-        if selected_matches:
-            combos = [m["combo_number"] for m in selected_matches]
-            print(f"🔢 COMBO NUMBERS: {combos}")
-
-        return selected_matches
+        all_text = f"{option['Category']} {option['Grouping']} {option['Demographic']} {option['Description']}".lower()
+        return any(keyword in all_text for keyword in automotive_keywords)
 
     def _format_targeting_response(self, matches, user_message):
-        """ENHANCED response formatting with n8n compatibility"""
+        """Format response with proper structure for n8n"""
         if not matches:
             return {
                 "status": "no_more_matches",
-                "query": user_message,
-                "message": "You've seen all available targeting combinations for this audience. Try a different audience description or schedule a consultation with ernesto@artemistargeting.com for custom targeting strategies.",
+                "message": "You've seen all available targeting combinations for this audience. Try a different audience description or contact ernesto@artemistargeting.com for custom targeting strategies.",
                 "targeting_pathways": [],
-                "count": 0,
             }
 
-        # Get conversation state to check if descriptions should be included
         conversation_key = self._create_conversation_key(user_message)
         conv_state = self._get_conversation_state(conversation_key)
-        show_descriptions = conv_state.get("show_descriptions", False)
-        original_intent = conv_state.get("original_intent", "your audience")
-        request_number = conv_state["request_count"]
-
-        print(
-            f"🔍 FORMATTING RESPONSE: show_descriptions={show_descriptions} for key={conversation_key}"
-        )
-        print(f"📊 REQUEST NUMBER: {request_number}")
-        print(f"🎯 ORIGINAL INTENT: {original_intent}")
 
         pathways = []
         for match in matches:
@@ -829,43 +678,40 @@ class handler(BaseHTTPRequestHandler):
                 "combo_number": match["combo_number"],
                 "pathway": match["pathway"],
                 "relevance_score": match["score"],
-                "category": match["option"]["category"],
-                "grouping": match["option"]["grouping"],
-                "demographic": match["option"]["demographic"],
+                "category": match["option"]["Category"],
+                "grouping": match["option"]["Grouping"],
+                "demographic": match["option"]["Demographic"],
                 "description": match.get("description", "No description available"),
             }
             pathways.append(pathway_data)
 
-        # **CRITICAL FIX: Pass starting combo number to n8n**
-        starting_combo = matches[0]["combo_number"] if matches else 1
-
-        response = {
+        return {
             "status": "success",
-            "query": user_message,
             "targeting_pathways": pathways,
-            "count": len(pathways),
-            "original_intent": original_intent,
-            "request_number": request_number,
-            "starting_combo_number": starting_combo,
-            "includes_descriptions": show_descriptions,
-            "conversation_action": "targeting_results",
+            "original_intent": conv_state.get("original_intent", user_message),
+            "request_number": conv_state["request_count"],
+            "starting_combo_number": matches[0]["combo_number"] if matches else 1,
+            "includes_descriptions": conv_state.get("show_descriptions", False),
         }
-
-        print(f"✅ FORMATTED RESPONSE: {len(pathways)} pathways, starting combo {starting_combo}")
-        print(f"✅ RESPONSE STRUCTURE: {list(response.keys())}")
-        return response
 
     def _get_fallback_response(self, user_message):
+        """Fallback response for no matches"""
         return {
             "status": "no_matches",
-            "query": user_message,
-            "message": "No targeting pathways found. Try describing your audience with more specific details about fitness, health, demographics, or interests.",
-            "suggestion": "Try terms like 'gym members', 'fitness enthusiasts', 'health conscious consumers', or specific demographics",
+            "message": "No targeting pathways found. Try describing your audience with more specific details about fitness, food/dining, demographics, or interests.",
         }
 
-    def _send_error(self, message, status_code):
-        error_response = {"status": "error", "message": message, "status_code": status_code}
+    def _send_json_response(self, response):
+        """Send JSON response with proper headers"""
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(json.dumps(response).encode())
 
+    def _send_error(self, message, status_code):
+        """Send error response"""
+        error_response = {"status": "error", "message": message}
         self.send_response(status_code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
