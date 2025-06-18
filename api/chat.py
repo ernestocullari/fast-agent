@@ -305,8 +305,8 @@ class handler(BaseHTTPRequestHandler):
         # Health check endpoint
         result = {
             "status": "✅ LIVE",
-            "message": "Artemis Targeting MCP Server - FIXED CONVERSATION STATE",
-            "version": "5.1.0-CONVERSATION-FIXED",
+            "message": "Artemis Targeting MCP Server - CLARIFICATION SYSTEM FIXED",
+            "version": "5.2.0-CLARIFICATION-FIXED",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
@@ -374,13 +374,20 @@ class handler(BaseHTTPRequestHandler):
         conversation_key = self._create_conversation_key(user_message)
         conv_state = self._get_conversation_state(conversation_key)
 
+        logger.info(
+            f"CLARIFICATION REQUEST: Looking for combo {combo_number} in session {conversation_key}"
+        )
+        logger.info(
+            f"Available pathways: {[p.get('combo_number') for p in conv_state.get('delivered_pathways', [])]}"
+        )
+
         delivered_pathways = conv_state.get("delivered_pathways", [])
         target_combo = next(
             (p for p in delivered_pathways if p.get("combo_number") == combo_number), None
         )
 
         if target_combo:
-            logger.info(f"Returning clarification for combo {combo_number}")
+            logger.info(f"Found combo {combo_number} - returning clarification")
             return {
                 "status": "success",
                 "response": f"**Combo {combo_number} Description:**\n\n{target_combo['pathway']}\n\n*{target_combo.get('description', 'No description available')}*\n\nWould you like clarification on any other combos?",
@@ -388,6 +395,7 @@ class handler(BaseHTTPRequestHandler):
                 "conversation_action": "specific_combo_clarification",
             }
         else:
+            logger.warning(f"Combo {combo_number} not found in session {conversation_key}")
             return {
                 "status": "success",
                 "response": f"I don't see a Combo {combo_number} in our conversation. Which specific combo would you like me to clarify?",
@@ -550,6 +558,9 @@ class handler(BaseHTTPRequestHandler):
 
         range_text = f"{start_combo}-{start_combo + len(selected_matches) - 1}"
         logger.info(f"Returning pathways {range_text}: {len(selected_matches)} matches")
+        logger.info(
+            f"Stored pathways for session {conversation_key}: {[p['combo_number'] for p in conv_state['delivered_pathways']]}"
+        )
 
         return selected_matches
 
@@ -581,7 +592,7 @@ class handler(BaseHTTPRequestHandler):
         return simple_yes or any(request in message_lower for request in description_requests)
 
     def _create_conversation_key(self, original_message):
-        """Create conversation key with proper new request detection"""
+        """Create conversation key with proper new request detection and clarification routing"""
         message_lower = original_message.lower().strip()
 
         # CRITICAL FIX: Detect genuinely NEW targeting requests
@@ -607,8 +618,49 @@ class handler(BaseHTTPRequestHandler):
         more_indicators = ["more", "more options", "additional", "what else", "other options"]
         is_more_request = any(indicator in message_lower for indicator in more_indicators)
 
+        # CLARIFICATION INDICATORS - CRITICAL FIX
+        clarification_indicators = [
+            "clarify combo",
+            "explain combo",
+            "describe combo",
+            "combo",
+            "what do these mean",
+            "what does this mean",
+            "explain",
+            "clarify",
+            "confused",
+            "what are these",
+            "i don't understand",
+        ]
+        is_clarification = any(indicator in message_lower for indicator in clarification_indicators)
+
         # Check if this is a new targeting request
         is_new_request = any(indicator in message_lower for indicator in new_request_indicators)
+
+        # FIXED LOGIC: Clarification and "more" requests should use the MOST RECENT session
+        if is_clarification or is_more_request:
+            # Find the most recent gaming/food/fitness session in CONVERSATION_STATE
+            global CONVERSATION_STATE
+            recent_sessions = []
+
+            for key in CONVERSATION_STATE.keys():
+                if "_session_" in key and CONVERSATION_STATE[key].get("delivered_pathways"):
+                    # Extract timestamp from key like "gaming_session_1735401234"
+                    try:
+                        timestamp = int(key.split("_")[-1])
+                        recent_sessions.append((timestamp, key))
+                    except:
+                        continue
+
+            # Return the most recent session that has delivered pathways
+            if recent_sessions:
+                recent_sessions.sort(reverse=True)  # Most recent first
+                most_recent_key = recent_sessions[0][1]
+                logger.info(f"CLARIFICATION: Using recent session {most_recent_key}")
+                return most_recent_key
+
+            # Fallback to targeting_session if no timestamped sessions found
+            return "targeting_session"
 
         # If it's clearly a new request, create a unique key
         if is_new_request and not is_more_request:
@@ -634,7 +686,7 @@ class handler(BaseHTTPRequestHandler):
                 # General targeting gets a unique timestamp-based key
                 return f"general_session_{int(time.time())}"
 
-        # For clarification, explanation, and "more" requests, use unified session
+        # For other requests, use unified session
         return "targeting_session"
 
     def _get_conversation_state(self, conversation_key):
