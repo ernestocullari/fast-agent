@@ -16,8 +16,8 @@ class handler(BaseHTTPRequestHandler):
         # Health check endpoint
         result = {
             "status": "✅ LIVE",
-            "message": "Artemis Targeting MCP Server - ENHANCED WITH DESCRIPTIONS",
-            "version": "4.2.0-PERSISTENT-MEMORY-FIXED",
+            "message": "Artemis Targeting MCP Server - ENHANCED WITH DESCRIPTIONS & ENUMERATION",
+            "version": "4.3.0-MEMORY-ENUMERATION-FIXED",
             "endpoints": ["GET /api/chat (health)", "POST /api/chat (targeting)"],
         }
 
@@ -225,6 +225,8 @@ class handler(BaseHTTPRequestHandler):
                 "last_query": "",
                 "show_descriptions": False,
                 "creation_time": "now",
+                "original_intent": "",  # NEW: Track original user intent
+                "delivered_pathways": [],  # NEW: Track delivered pathways with combo numbers
             }
 
         return CONVERSATION_STATE[conversation_key]
@@ -427,6 +429,10 @@ class handler(BaseHTTPRequestHandler):
         conversation_key = self._create_conversation_key(original_message)
         conv_state = self._get_conversation_state(conversation_key)
 
+        # Store original intent on first request
+        if conv_state["request_count"] == 0:
+            conv_state["original_intent"] = original_message
+
         # Increment request count
         conv_state["request_count"] += 1
         conv_state["last_query"] = original_message
@@ -435,6 +441,7 @@ class handler(BaseHTTPRequestHandler):
 
         print(f"🔄 CONVERSATION KEY: {conversation_key}")
         print(f"📊 REQUEST NUMBER: {request_number}")
+        print(f"🎯 ORIGINAL INTENT: {conv_state['original_intent']}")
         print(f"🔍 SHOW DESCRIPTIONS: {conv_state.get('show_descriptions', False)}")
 
         # ENHANCED FITNESS INTENT DETECTION
@@ -596,34 +603,55 @@ class handler(BaseHTTPRequestHandler):
         # Sort all matches by score (highest first)
         all_matches.sort(key=lambda x: x["score"], reverse=True)
 
-        # PROGRESSIVE PATHWAY SELECTION
+        # PROGRESSIVE PATHWAY SELECTION WITH COMBO NUMBERING
         if request_number == 1:
             # First request: Return top 3 (positions 0-2)
             selected_matches = all_matches[0:3]
             range_text = "1-3"
+            start_combo = 1
         elif request_number == 2:
             # Second request: Return next 4 (positions 3-6)
             selected_matches = all_matches[3:7]
             range_text = "4-7"
+            start_combo = 4
         elif request_number == 3:
             # Third request: Return next 4 (positions 7-10)
             selected_matches = all_matches[7:11]
             range_text = "8-11"
+            start_combo = 8
         elif request_number == 4:
             # Fourth request: Return final 4 (positions 11-14)
             selected_matches = all_matches[11:15]
             range_text = "12-15"
+            start_combo = 12
         else:
             # Beyond 4 requests: No more options
             selected_matches = []
             range_text = "EXHAUSTED"
+            start_combo = 0
+
+        # **NEW: Add combo numbers to selected matches**
+        for i, match in enumerate(selected_matches):
+            combo_number = start_combo + i
+            match["combo_number"] = combo_number
+
+            # Store in conversation state
+            conv_state["delivered_pathways"].append(
+                {
+                    "combo_number": combo_number,
+                    "pathway": match["pathway"],
+                    "description": match["description"],
+                }
+            )
 
         print(f"🎯 RETURNING PATHWAYS {range_text}: {len(selected_matches)} matches")
         print(f"📊 TOTAL AVAILABLE: {len(all_matches)} matches")
 
         if selected_matches:
             scores = [m["score"] for m in selected_matches]
+            combos = [m["combo_number"] for m in selected_matches]
             print(f"🏆 SCORES FOR THIS BATCH: {scores}")
+            print(f"🔢 COMBO NUMBERS: {combos}")
 
         return selected_matches
 
@@ -641,6 +669,7 @@ class handler(BaseHTTPRequestHandler):
         conversation_key = self._create_conversation_key(user_message)
         conv_state = self._get_conversation_state(conversation_key)
         show_descriptions = conv_state.get("show_descriptions", False)
+        original_intent = conv_state.get("original_intent", "your audience")
 
         print(
             f"🔍 FORMATTING RESPONSE: show_descriptions={show_descriptions} for key={conversation_key}"
@@ -649,6 +678,7 @@ class handler(BaseHTTPRequestHandler):
         pathways = []
         for match in matches:
             pathway_data = {
+                "combo_number": match["combo_number"],  # NEW: Include combo number
                 "pathway": match["pathway"],
                 "relevance_score": match["score"],
             }
@@ -659,12 +689,21 @@ class handler(BaseHTTPRequestHandler):
 
             pathways.append(pathway_data)
 
+        # **NEW: Create context-aware message**
+        request_number = conv_state["request_count"]
+        if request_number == 1:
+            context_message = f"Here are your targeting pathways for {original_intent}:"
+        else:
+            context_message = f"Here are additional targeting options for {original_intent}:"
+
         response = {
             "status": "success",
             "query": user_message,
             "targeting_pathways": pathways,
             "count": len(pathways),
-            "message": f"Found {len(pathways)} targeting pathway(s) for your audience",
+            "message": context_message,  # NEW: Context-aware message
+            "original_intent": original_intent,  # NEW: Include original intent for reference
+            "request_number": request_number,  # NEW: Include request number
         }
 
         # **NEW: Add flag to indicate if descriptions are included**
