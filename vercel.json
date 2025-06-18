@@ -1,23 +1,19 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/chat.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "api/test-imports.py",
-      "use": "@vercel/python"
+  "functions": {
+    "api/chat.py": {
+      "runtime": "python3.12"
     }
-  ],
+  },
   "routes": [
     {
-      "src": "/api/chat",
+      "src": "/api/(.*)",
       "dest": "/api/chat.py"
-    },
-    {
-      "src": "/api/test-imports",
-      "dest": "/api/test-imports.py"
     }
-  ]
+  ],
+  "build": {
+    "env": {
+      "PIP_NO_DEPS": "0",
+      "PIP_DISABLE_PIP_VERSION_CHECK": "1"
+    }
+  }
 }
